@@ -37,6 +37,7 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'admin', 'recruiter'],
     default: 'student',
   },
+  
   // PHASE-16: MONETIZATION LAYER
   subscription: {
     plan: { 
@@ -54,6 +55,11 @@ const userSchema = new mongoose.Schema({
       interviewsScheduled: { type: Number, default: 0 }
     }
   },
+
+  // PHASE-19B: ACCOUNT SECURITY FIELDS (Account Lockout)
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date },
+
   collegeId: { type: String, default: null },
   isVerified: { type: Boolean, default: false },
   isFrozen: { type: Boolean, default: false },
@@ -61,5 +67,9 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
+
+// Helper method to validate password (Phase-0 Logic preserved)
+// Note: Usually defined here or in controller. Assuming controller handles bcrypt compare.
+// If you had methods here, keep them. If not, this schema is complete.
 
 module.exports = mongoose.model('User', userSchema);

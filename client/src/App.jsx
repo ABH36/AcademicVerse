@@ -5,13 +5,14 @@ import ProtectedRoute from './components/ProtectedRoute'; // Your existing file 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-
-
 // Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard'; // Handles all sub-routes including /admin
 import PublicProfile from './pages/PublicProfile';
+
+// --- PHASE-20: NEW IMPORT ---
+import TrustRegistry from './pages/public/TrustRegistry';
 
 function App() {
   return (
@@ -32,6 +33,9 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/u/:username" element={<PublicProfile />} />
+
+          {/* PHASE-20: Public Trust Registry Route */}
+          <Route path="/verify" element={<TrustRegistry />} />
 
           {/* PROTECTED DASHBOARD ROUTE
             Note: The Admin Panel is now nested inside Dashboard as /dashboard/admin

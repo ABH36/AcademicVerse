@@ -25,6 +25,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 // Phase-16: Subscription Import
 const subscriptionRoutes = require('./routes/subscriptionRoutes'); 
+// --- PHASE-21: SWAGGER IMPORTS ---
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 // Load env vars
 dotenv.config();
@@ -83,6 +86,13 @@ app.use(cors({
   },
   credentials: true, // Vital for HttpOnly Cookies (Refresh Token)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+}));
+
+// --- PHASE-21: API DOCUMENTATION ROUTE ---
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }', // Hide top bar for cleaner look
+    customSiteTitle: "AcademicVerse Dev Portal"
 }));
 
 // MOUNT ROUTES

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createJob, getMyPostedJobs, getJobApplications, updateAppStatus } from '../../services/jobService';
 import { toast } from 'react-toastify';
-import { PlusCircle, Loader, ShieldCheck, Briefcase, Users } from 'lucide-react';
+import { PlusCircle, Loader, ShieldCheck, Briefcase, Users, FileCheck } from 'lucide-react'; // Added FileCheck icon
 import ApplicantCard from '../../components/jobs/ApplicantCard';
 
+// --- PHASE-20: IMPORT KYC COMPONENT ---
+import RecruiterKYC from '../../components/dashboard/RecruiterKYC';
+
 const RecruiterHub = () => {
-  const [activeTab, setActiveTab] = useState('post'); // 'post' or 'manage'
+  const [activeTab, setActiveTab] = useState('post'); // 'post', 'manage', 'kyc'
   const [loading, setLoading] = useState(false);
   
   // Post Job State
@@ -111,20 +114,28 @@ const RecruiterHub = () => {
             </div>
             
             {/* Custom Tab Switcher */}
-            <div className="flex bg-black/40 p-1 rounded-lg border border-white/10">
+            <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 overflow-x-auto">
                 <button 
                     onClick={() => setActiveTab('post')}
-                    className={`px-5 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all 
+                    className={`px-5 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap
                     ${activeTab === 'post' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                 >
                     <Briefcase size={16}/> Post Job
                 </button>
                 <button 
                     onClick={() => setActiveTab('manage')}
-                    className={`px-5 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all 
+                    className={`px-5 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap
                     ${activeTab === 'manage' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                 >
                     <Users size={16}/> Applications
+                </button>
+                {/* --- PHASE-20: NEW KYC TAB --- */}
+                <button 
+                    onClick={() => setActiveTab('kyc')}
+                    className={`px-5 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap
+                    ${activeTab === 'kyc' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                >
+                    <FileCheck size={16}/> Verify Company
                 </button>
             </div>
         </div>
@@ -199,7 +210,6 @@ const RecruiterHub = () => {
         {/* === TAB 2: MANAGE APPLICATIONS === */}
         {activeTab === 'manage' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px]">
-                
                 {/* Left: Job List (3 Columns) */}
                 <div className="lg:col-span-4 space-y-4">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Your Jobs</h3>
@@ -265,6 +275,11 @@ const RecruiterHub = () => {
                     )}
                 </div>
             </div>
+        )}
+
+        {/* === TAB 3: KYC (PHASE-20) === */}
+        {activeTab === 'kyc' && (
+            <RecruiterKYC />
         )}
     </div>
   );

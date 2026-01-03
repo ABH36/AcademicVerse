@@ -6,6 +6,13 @@ const Profile = require('../models/Profile');
 const generateToken = require('../utils/generateToken'); 
 const logger = require('../utils/logger');
 
+// --- PHASE-19B: INTELLIGENCE PACKAGES ---
+const LoginHistory = require('../models/LoginHistory'); 
+const requestIp = require('request-ip'); 
+const geoip = require('geoip-lite'); 
+const uaparser = require('ua-parser-js'); 
+// ----------------------------------------
+
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -32,14 +39,14 @@ exports.registerUser = async (req, res) => {
     if (userExists) return res.status(400).json({ message: 'Email already registered' });
     if (usernameExists) return res.status(400).json({ message: 'Username is taken' });
 
-    // 🔥 FIX IS HERE: Hash password before saving
+    // Hash password
     const hashedPassword = await argon2.hash(password);
 
     // 3. Create User
     const user = await User.create({
       name,
       email,
-      password: hashedPassword, // Save the HASH, not plain text
+      password: hashedPassword, 
       username: username.toLowerCase()
     });
 
@@ -78,37 +85,104 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// @desc    Login user & get token
+// @desc    Login user & get token (With Phase-19B Security)
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user email
-    // Note: We need password field which might be selected: false by default in model
+    // --- PHASE-19B: PARSE DEVICE INFO ---
+    const clientIp = requestIp.getClientIp(req) || 'Unknown IP';
+    const geo = geoip.lookup(clientIp);
+    const userAgent = uaparser(req.headers['user-agent']);
+    
+    const logData = {
+        ipAddress: clientIp,
+        browser: userAgent.browser.name || 'Unknown',
+        os: userAgent.os.name || 'Unknown',
+        device: userAgent.device.type || 'Desktop',
+        city: geo ? geo.city : 'Unknown',
+        country: geo ? geo.country : 'Unknown',
+    };
+    // ------------------------------------
+
+    // Check for user
     const user = await User.findOne({ email }).select('+password');
     
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    // IF USER NOT FOUND
+    if (!user) {
+        // Log Anonymous Failure (Optional, keeping it simple for now)
+        return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     if (user.isFrozen) {
       return res.status(403).json({ message: 'Account is frozen. Contact Admin.' });
     }
 
+    // --- PHASE-19B: CHECK LOCKOUT ---
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+        const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 60000);
+        
+        // Log Locked Attempt
+        await LoginHistory.create({
+            user: user._id,
+            ...logData,
+            loginStatus: 'Failed',
+            failureReason: 'Account Locked'
+        });
+
+        return res.status(403).json({ 
+            message: `Account temporarily locked due to multiple failed login attempts. Try again in ${remainingTime} minutes.` 
+        });
+    }
+    // --------------------------------
+
     // Verify Password
-    // Ab ye chalega kyunki DB mein hash stored hoga (start with $)
     const isMatch = await argon2.verify(user.password, password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    
+    if (!isMatch) {
+        // --- PHASE-19B: INCREMENT FAILURE COUNT ---
+        user.failedLoginAttempts += 1;
 
-    // 1. Generate Tokens
+        // If attempts >= 5, Lock Account for 60 mins
+        if (user.failedLoginAttempts >= 5) {
+            user.lockUntil = Date.now() + 60 * 60 * 1000; // 1 Hour Lock
+            user.failedLoginAttempts = 0; // Reset counter
+        }
+        await user.save();
+
+        // Log Failed Attempt
+        await LoginHistory.create({
+            user: user._id,
+            ...logData,
+            loginStatus: 'Failed',
+            failureReason: 'Wrong Password'
+        });
+
+        return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // --- SUCCESSFUL LOGIN ---
+    
+    // Reset Lockout Counters
+    user.failedLoginAttempts = 0;
+    user.lockUntil = undefined;
+    
+    // Generate Tokens
     const { accessToken, refreshToken } = generateToken(req, user._id);
-
-    // 2. Persist to DB
     user.refreshToken = refreshToken;
     await user.save();
 
-    // 3. Set Cookie
+    // Log Success
+    await LoginHistory.create({
+        user: user._id,
+        ...logData,
+        loginStatus: 'Success'
+    });
+
+    // Set Cookie
     res.cookie('jwt', refreshToken, cookieOptions);
 
-    logger.info(`User Login: ${email}`);
+    logger.info(`User Login: ${email} [${logData.city}, ${logData.browser}]`);
 
     res.json({
       success: true,
@@ -201,5 +275,19 @@ exports.refreshAccessToken = async (req, res) => {
     } catch (error) {
         logger.error(`Refresh Error: ${error.message}`);
         res.status(401).json({ message: 'Not authorized' });
+    }
+};
+// @desc    Get User Login History (Last 10 Logs)
+// @route   GET /api/auth/history
+exports.getLoginHistory = async (req, res) => {
+    try {
+        const logs = await LoginHistory.find({ user: req.user._id })
+            .sort({ timestamp: -1 }) // Latest first
+            .limit(10); // Sirf last 10 dikhayenge
+        
+        res.json(logs);
+    } catch (error) {
+        logger.error(`History Error: ${error.message}`);
+        res.status(500).json({ message: 'Server Error' });
     }
 };

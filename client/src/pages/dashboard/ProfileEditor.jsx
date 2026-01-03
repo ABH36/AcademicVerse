@@ -4,6 +4,9 @@ import { getMyProfile, updateProfile } from '../../services/profileService';
 import { toast } from 'react-toastify';
 import { Camera, Save, Loader } from 'lucide-react';
 
+// --- NEW IMPORT: Login History Widget (Phase-19B) ---
+import LoginHistoryWidget from '../../components/dashboard/LoginHistoryWidget';
+
 const ProfileEditor = () => {
   const { user } = useAuth(); // Global User State
   const [loading, setLoading] = useState(true);
@@ -251,6 +254,12 @@ const ProfileEditor = () => {
         </div>
 
       </form>
+
+      {/* --- PHASE-19B: LOGIN HISTORY WIDGET --- */}
+      <div className="mt-8">
+         <LoginHistoryWidget />
+      </div>
+
     </div>
   );
 };

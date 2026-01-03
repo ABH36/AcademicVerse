@@ -25,6 +25,7 @@ const profileSchema = new mongoose.Schema({
     technical: [String],
     soft: [String]
   },
+  trustScore: { type: Number, default: 300, min: 0, max: 1000 },
   // Social Identity
   socialLinks: {
     linkedin: { type: String, default: '' },

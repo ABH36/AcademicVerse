@@ -10,7 +10,7 @@ import { getMyProjects } from '../services/projectService';
 
 // Import Layouts & Components
 import MobileLayout from '../layouts/MobileLayout';
-import AppSplash from '../components/mobile/AppSplash'; // <--- NEW IMPORT
+import AppSplash from '../components/mobile/AppSplash'; 
 
 // Import Sub-Modules
 import ProfileEditor from './dashboard/ProfileEditor';
@@ -57,7 +57,7 @@ const SidebarItem = ({ icon: Icon, label, path, active, onClick }) => (
   </Link>
 );
 
-// --- HELPER: Centralized Routes (Avoids Code Duplication) ---
+// --- HELPER: Centralized Routes ---
 const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
     return (
         <Routes>
@@ -82,7 +82,7 @@ const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
                         )}
                     </header>
 
-                    {/* --- NEW: ADD TO HOME SCREEN HINT (Mobile Only) --- */}
+                    {/* ADD TO HOME SCREEN HINT (Mobile Only) */}
                     <div className="md:hidden mb-4 bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl flex items-center gap-3">
                          <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">📱</div>
                          <div>
@@ -90,7 +90,6 @@ const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
                              <p className="text-xs text-blue-300/70">Add to Home Screen for faster access.</p>
                          </div>
                     </div>
-                    {/* --------------------------------------------------- */}
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-1 space-y-6">
@@ -100,7 +99,6 @@ const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
                                 projects={overviewData.projects}
                                 certs={[]} 
                             />
-                            {/* LOOP FIX: Using fetchOverview instead of reload */}
                             <StudentVerification 
                                 profile={overviewData.profile} 
                                 onVerified={() => {
@@ -183,15 +181,13 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isMobile = useIsMobile(); // Detect Screen Size
+  const isMobile = useIsMobile(); 
   
-  // Overview Data State
   const [loading, setLoading] = useState(true);
   const [overviewData, setOverviewData] = useState({
     profile: null, skills: null, academic: null, projects: [], certs: []
   });
 
-  // Reusable Fetch Function
   const fetchOverview = async () => {
     try {
         const [profile, skills, academic, projects] = await Promise.all([
@@ -216,11 +212,11 @@ const Dashboard = () => {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   // ---------------------------------------------------------
-  // RENDER: MOBILE LAYOUT (With Splash Screen)
+  // RENDER: MOBILE LAYOUT (AppSplash + MobileLayout)
   // ---------------------------------------------------------
   if (isMobile) {
     return (
-        <AppSplash> {/* <--- WRAPPED IN SPLASH */}
+        <AppSplash> 
             <MobileLayout user={user}>
                 <DashboardRoutes 
                     user={user} 
@@ -234,12 +230,13 @@ const Dashboard = () => {
   }
 
   // ---------------------------------------------------------
-  // RENDER: DESKTOP LAYOUT (Original)
+  // RENDER: DESKTOP LAYOUT (SCROLL FIX APPLIED)
   // ---------------------------------------------------------
+  // FIXED: Changed 'min-h-screen' to 'h-screen' & added 'overflow-hidden' on parent
+  // Added 'h-full overflow-y-auto' on main content to enable internal scrolling
   return (
-    <div className="min-h-screen flex bg-gray-900 text-white font-sans selection:bg-primary/30">
+    <div className="h-screen flex bg-gray-900 text-white font-sans selection:bg-primary/30 overflow-hidden">
       
-      {/* Mobile Sidebar Overlay (Only needed if resizing browser on desktop) */}
       {sidebarOpen && (
         <div 
             className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
@@ -308,8 +305,8 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-x-hidden">
+      {/* Main Content Area - FIXED SCROLLING */}
+      <main className="flex-1 h-full overflow-y-auto overflow-x-hidden">
         {/* Mobile Header (Hidden in Desktop) */}
         <header className="bg-gray-900 border-b border-gray-800 md:hidden p-4 flex justify-between items-center sticky top-0 z-20">
              <div className="flex items-center gap-3">

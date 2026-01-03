@@ -5,16 +5,20 @@ import api from '../services/api';
 import { motion } from 'framer-motion';
 import { 
   MapPin, Calendar, Link as LinkIcon, Github, Linkedin, 
-  ExternalLink, Award, BookOpen, CheckCircle, Shield 
+  ExternalLink, Award, BookOpen, CheckCircle, Shield, Flag 
 } from 'lucide-react';
 import ShareProfile from '../components/ShareProfile';
-import TrustBadge from '../components/TrustBadge'; // Ensure this file exists
+import TrustBadge from '../components/TrustBadge'; 
+import ReportModal from '../components/profile/ReportModal'; // --- PHASE-20: IMPORT REPORT MODAL ---
 
 const PublicProfile = () => {
   const { username } = useParams();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // --- PHASE-20: REPORT STATE ---
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     const fetchPublicProfile = async () => {
@@ -58,8 +62,6 @@ const PublicProfile = () => {
         <Helmet>
             <title>{profile.identity.name} - AcademicVerse</title>
             <meta name="description" content={profile.identity.bio || `View ${profile.identity.name}'s verified academic portfolio and projects.`} />
-            
-            {/* Open Graph */}
             <meta property="og:type" content="profile" />
             <meta property="og:title" content={`${profile.identity.name} | Verified Student Portfolio`} />
             <meta property="og:description" content={profile.identity.bio || "View my academic credentials and projects."} />
@@ -75,6 +77,16 @@ const PublicProfile = () => {
             {/* Background Gradient Mesh */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px]" style={{ backgroundColor: `${themeColor}20` }} />
+            </div>
+
+            {/* --- PHASE-20: REPORT BUTTON (Top Right of Header) --- */}
+            <div className="absolute top-6 right-6 z-20">
+                <button 
+                    onClick={() => setShowReportModal(true)}
+                    className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-red-400 transition-colors bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-sm border border-transparent hover:border-red-500/30"
+                >
+                    <Flag size={12} /> Report Profile
+                </button>
             </div>
 
             <div className="max-w-6xl mx-auto px-6 relative z-10">
@@ -116,11 +128,15 @@ const PublicProfile = () => {
                             {profile.identity.bio || "No bio added yet."}
                         </p>
 
-                        {/* --- NEW TRUST BADGE INSERTED HERE --- */}
+                        {/* --- PHASE-20: TRUST BADGE UPGRADED --- */}
                         <div className="mb-6 max-w-md mx-auto md:mx-0">
-                            <TrustBadge verification={profile.identity.verification} />
+                            {/* We pass scoreOverride because the backend now sends trustScore at the root level */}
+                            <TrustBadge 
+                                verification={profile.identity.verification} 
+                                scoreOverride={profile.trustScore} 
+                            />
                         </div>
-                        {/* ------------------------------------- */}
+                        {/* -------------------------------------- */}
 
                         {/* Metadata Row */}
                         <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-500 mb-6">
@@ -324,6 +340,14 @@ const PublicProfile = () => {
                 <a href="/" className="ml-1 text-primary hover:underline">Create your profile</a>
             </p>
         </footer>
+
+        {/* --- PHASE-20: REPORT MODAL --- */}
+        {showReportModal && (
+            <ReportModal 
+                targetUserId={profile.user._id} // Passing ID for the report
+                onClose={() => setShowReportModal(false)} 
+            />
+        )}
     </div>
   );
 };

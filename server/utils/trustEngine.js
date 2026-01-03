@@ -1,59 +1,80 @@
+const Profile = require('../models/Profile');
+const User = require('../models/User');
+const AbuseReport = require('../models/AbuseReport');
+const Certificate = require('../models/Certificate');
+const KYCRequest = require('../models/KYCRequest'); // For Recruiters
+
 /**
- * Calculates the Credibility Score (0-100) based on verified data points.
- * @param {Object} profile - The user profile object
- * @returns {Object} { score, tier, breakdown }
+ * Calculates the Trust Score (0-1000) based on verified data points & behavioral history.
+ * UPGRADED: Merges old profile logic with new DB-level intelligence.
+ * @param {String} userId - The user ID to analyze
+ * @returns {Number} score - Final Trust Score (0-1000)
  */
-const calculateTrustScore = (profile) => {
-  let score = 0;
-  const breakdown = [];
+const calculateTrustScore = async (userId) => {
+  try {
+    let score = 300; // Base Score (New Baseline)
 
-  // 1. SAFEGUARD: Agar profile null/undefined hai to turant return karo
-  if (!profile) {
-    return { score: 0, tier: 'Unverified', breakdown: [] };
+    // 1. FETCH DATA (Async Database Calls)
+    const user = await User.findById(userId);
+    const profile = await Profile.findOne({ user: userId });
+    const certCount = await Certificate.countDocuments({ user: userId });
+    const reportCount = await AbuseReport.countDocuments({ reportedUser: userId, status: 'Resolved' });
+    const approvedKYC = await KYCRequest.findOne({ user: userId, status: 'Approved' });
+
+    // SAFEGUARD: Agar user/profile nahi mila
+    if (!user || !profile) return 0;
+
+    // 2. EXTRACT SAFELY (Your Existing Logic Preserved)
+    const identity = profile.identity || {};
+    const academicDetails = profile.academicDetails || {};
+    const socialLinks = profile.socialLinks || {};
+    const skills = profile.skills || {};
+
+    // --- POSITIVE FACTORS (Growth) ---
+
+    // A. User Verification (Major Boost)
+    if (user.isVerified) score += 200; // Old: 40 pts -> New: 200 pts
+    if (approvedKYC) score += 300;     // Recruiter/Company Verified
+
+    // B. Identity Completeness (Your Old Logic - Scaled x10)
+    if (identity.avatar) score += 30;  // Old: 5
+    if (identity.bio && identity.bio.length > 50) score += 30; // Old: 5
+    if (socialLinks.linkedin) score += 50; // Old: 10
+    
+    // C. Academic Data (Your Old Logic - Scaled x10)
+    if (academicDetails.collegeName) score += 50; // Old: 10
+    if (academicDetails.rollNumber) score += 50;  // Old: 10
+
+    // D. Skills & Projects (Your Old Logic - Scaled x10)
+    if (skills.technical && skills.technical.length > 3) score += 50; // Old: 10
+
+    // E. Certificates (New Intelligence)
+    // Har certificate ke 50 points (Max 250)
+    score += Math.min(certCount * 50, 250);
+
+    // F. Account Age (Loyalty Bonus)
+    const daysOld = (Date.now() - user.createdAt) / (1000 * 60 * 60 * 24);
+    if (daysOld > 365) score += 50; // >1 Year old
+
+    // --- NEGATIVE FACTORS (Fraud Engine) ---
+
+    // G. Abuse Reports (Severe Penalty)
+    score -= (reportCount * 150);
+
+    // H. Suspicious History
+    if (user.failedLoginAttempts > 10) score -= 50;
+    if (user.isFrozen) score -= 500; // Account frozen means untrustworthy
+
+    // 3. CLAMPING (Limit between 0 and 1000)
+    if (score > 1000) score = 1000;
+    if (score < 0) score = 0;
+
+    return Math.round(score);
+
+  } catch (error) {
+    console.error("Trust Calculation Error:", error);
+    return 0; // Fail safe
   }
-
-  // 2. EXTRACT SAFELY: Har object ke liye fallback {} lagaya hai
-  // Isse 'Cannot read properties of undefined' wala error kabhi nahi aayega
-  const identity = profile.identity || {};
-  const verification = profile.verification || {};
-  const academicDetails = profile.academicDetails || {};
-  const socialLinks = profile.socialLinks || {};
-  const skills = profile.skills || {};
-
-  // --- SCORING LOGIC (Same as before) ---
-
-  // 1. Core Verification (The Blue Tick) - 40 Points
-  if (verification.isVerified) {
-    score += 40;
-    breakdown.push({ label: 'Academic Identity Verified', points: 40 });
-  }
-
-  // 2. Identity Completeness - 20 Points
-  if (identity.avatar) score += 5;
-  if (identity.bio && identity.bio.length > 50) score += 5;
-  if (socialLinks.linkedin) score += 10;
-
-  // 3. Academic Data - 20 Points
-  if (academicDetails.collegeName) score += 10;
-  if (academicDetails.rollNumber) score += 10; // Private but indicates seriousness
-
-  // 4. Skills & Projects - 20 Points
-  // Check if skills.technical exists AND has length
-  if (skills.technical && skills.technical.length > 3) score += 10;
-  
-  // We assume projects array length is passed or populated in profile
-  // For MVP, if skills exist, we give points.
-
-  // Cap at 100
-  if (score > 100) score = 100;
-
-  // Determine Tier
-  let tier = 'Unverified';
-  if (score >= 90) tier = 'Elite';
-  else if (score >= 70) tier = 'Gold';
-  else if (score >= 40) tier = 'Verified';
-
-  return { score, tier, breakdown };
 };
 
 module.exports = calculateTrustScore;

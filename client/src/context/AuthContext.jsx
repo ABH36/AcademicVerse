@@ -119,13 +119,25 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // --- NEW: Phase-19B Get Login History ---
+  const getLoginHistory = async () => {
+    try {
+      const { data } = await api.get('/auth/history');
+      return data;
+    } catch (error) {
+      console.error("Failed to fetch login history", error);
+      return []; // Return empty array on error to prevent crash
+    }
+  };
+
   // SINGLE VALUE OBJECT (Corrected)
   const value = {
     user,
     loading,
     login,
-    register, // Added register here
+    register, 
     logout,
+    getLoginHistory, // <--- EXPORTED NEW FUNCTION
     isAuthenticated: !!user
   };
 
