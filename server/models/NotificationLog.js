@@ -8,7 +8,8 @@ const notificationLogSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['interview', 'offer', 'rejection', 'hired', 'system'],
+    // FIX: Added 'offered' and 'rejected' to match the exact words coming from jobController
+    enum: ['interview', 'offer', 'offered', 'rejection', 'rejected', 'hired', 'system'],
     required: true
   },
   emailTo: { type: String, required: true },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createJob, getMyPostedJobs, getJobApplications, updateAppStatus } from '../../services/jobService';
 import { toast } from 'react-toastify';
-import { PlusCircle, Loader, ShieldCheck, Briefcase, Users, FileCheck } from 'lucide-react'; // Added FileCheck icon
+import { PlusCircle, Loader, ShieldCheck, Briefcase, Users, FileCheck } from 'lucide-react';
 import ApplicantCard from '../../components/jobs/ApplicantCard';
 
 // --- PHASE-20: IMPORT KYC COMPONENT ---
@@ -85,15 +85,20 @@ const RecruiterHub = () => {
     }
   };
 
-  const handleStatusUpdate = async (appId, status) => {
+  // --- CRITICAL FIX: Added 'interviewData' parameter ---
+  const handleStatusUpdate = async (appId, status, interviewData = null) => {
       try {
-          await updateAppStatus(appId, status);
+          // Pass interviewData to the service call
+          await updateAppStatus(appId, status, interviewData);
+          
           toast.success(`Candidate ${status}`);
-          // Optimistic UI Update (List refresh karo bina API call ke)
+          
+          // Optimistic UI Update (Refresh list locally)
           setApplications(prev => prev.map(app => 
               app._id === appId ? { ...app, status } : app
           ));
       } catch (error) {
+          console.error("Status Update Failed", error);
           toast.error("Failed to update status");
       }
   };

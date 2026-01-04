@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom'; // Added useLocation
 import { Helmet } from 'react-helmet-async';
 import api from '../services/api'; 
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 import { 
   MapPin, Calendar, Link as LinkIcon, Github, Linkedin, 
-  ExternalLink, Award, BookOpen, CheckCircle, Shield, Flag 
+  ExternalLink, Award, BookOpen, CheckCircle, Shield, Flag, ArrowLeft 
 } from 'lucide-react';
 import ShareProfile from '../components/ShareProfile';
 import TrustBadge from '../components/TrustBadge'; 
-import ReportModal from '../components/profile/ReportModal'; // --- PHASE-20: IMPORT REPORT MODAL ---
+import ReportModal from '../components/profile/ReportModal'; 
 
 const PublicProfile = () => {
   const { username } = useParams();
+  const navigate = useNavigate(); 
+  const location = useLocation(); // Hook to check history state
+  const { user: currentUser } = useAuth(); 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // --- PHASE-20: REPORT STATE ---
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -35,8 +38,20 @@ const PublicProfile = () => {
     fetchPublicProfile();
   }, [username]);
 
+  // --- SMART BACK HANDLER ---
+  const handleBack = () => {
+    // React Router assigns a 'default' key to the initial entry in the stack.
+    // If key is 'default', it means user opened link directly (No History) -> Go Dashboard.
+    // If key is NOT 'default', user navigated here -> Go Back (-1).
+    if (location.key !== 'default') {
+        navigate(-1);
+    } else {
+        navigate('/dashboard');
+    }
+  };
+
   if (loading) return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+    <div className="fixed inset-0 bg-gray-900 text-white flex items-center justify-center">
       <div className="animate-pulse flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-gray-400 font-mono text-sm">Accessing AcademicVerse Network...</p>
@@ -45,7 +60,7 @@ const PublicProfile = () => {
   );
   
   if (error) return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 text-center">
+    <div className="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center p-4 text-center">
         <Shield className="w-16 h-16 text-red-500 mb-4" />
         <h1 className="text-3xl font-bold text-white mb-2">Access Denied</h1>
         <p className="text-gray-400 max-w-md">{error}</p>
@@ -57,7 +72,7 @@ const PublicProfile = () => {
   const themeColor = profile.theme?.accentColor || '#3B82F6';
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans selection:bg-primary/30 relative overflow-x-hidden">
+    <div className="fixed inset-0 bg-gray-900 text-white font-sans selection:bg-primary/30 overflow-y-auto overflow-x-hidden">
         {/* SEO Injection */}
         <Helmet>
             <title>{profile.identity.name} - AcademicVerse</title>
@@ -72,21 +87,33 @@ const PublicProfile = () => {
         {/* Floating Share Button */}
         <ShareProfile username={username} name={profile.identity.name} />
 
+        {/* --- NAVIGATION CONTROLS --- */}
+        
+        {/* 1. SMART BACK BUTTON (High Z-Index & Clickable) */}
+        {currentUser && (
+            <button 
+                onClick={handleBack} 
+                className="fixed top-6 left-6 z-[100] cursor-pointer flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/20 px-4 py-2 rounded-full text-sm font-bold text-gray-200 hover:text-white hover:bg-black/60 transition-all hover:scale-105 shadow-xl group"
+            >
+                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform"/>
+                <span className="hidden md:inline">Back</span>
+            </button>
+        )}
+
+        {/* 2. Report Button (Top Right) */}
+        <div className="absolute top-6 right-6 z-20">
+            <button 
+                onClick={() => setShowReportModal(true)}
+                className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-red-400 transition-colors bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-sm border border-transparent hover:border-red-500/30"
+            >
+                <Flag size={12} /> Report Profile
+            </button>
+        </div>
+
         {/* --- HERO SECTION --- */}
         <header className="relative bg-card border-b border-white/5 pt-20 pb-16">
-            {/* Background Gradient Mesh */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px]" style={{ backgroundColor: `${themeColor}20` }} />
-            </div>
-
-            {/* --- PHASE-20: REPORT BUTTON (Top Right of Header) --- */}
-            <div className="absolute top-6 right-6 z-20">
-                <button 
-                    onClick={() => setShowReportModal(true)}
-                    className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-red-400 transition-colors bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-sm border border-transparent hover:border-red-500/30"
-                >
-                    <Flag size={12} /> Report Profile
-                </button>
             </div>
 
             <div className="max-w-6xl mx-auto px-6 relative z-10">
@@ -107,7 +134,6 @@ const PublicProfile = () => {
                                 </div>
                             )}
                         </div>
-                        {/* Online Status Dot */}
                         <div className="absolute bottom-2 right-2 w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
                             <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                         </div>
@@ -128,17 +154,13 @@ const PublicProfile = () => {
                             {profile.identity.bio || "No bio added yet."}
                         </p>
 
-                        {/* --- PHASE-20: TRUST BADGE UPGRADED --- */}
                         <div className="mb-6 max-w-md mx-auto md:mx-0">
-                            {/* We pass scoreOverride because the backend now sends trustScore at the root level */}
                             <TrustBadge 
                                 verification={profile.identity.verification} 
                                 scoreOverride={profile.trustScore} 
                             />
                         </div>
-                        {/* -------------------------------------- */}
 
-                        {/* Metadata Row */}
                         <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-500 mb-6">
                             {profile.academic?.semesters && (
                                 <span className="flex items-center gap-1.5 bg-gray-800/50 px-3 py-1.5 rounded-lg border border-white/5">
@@ -156,7 +178,6 @@ const PublicProfile = () => {
                             </span>
                         </div>
 
-                        {/* Social Links */}
                         <div className="flex gap-3">
                             {profile.socials?.github && (
                                 <a href={profile.socials.github} target="_blank" rel="noreferrer" className="p-2 bg-gray-800 rounded-lg hover:bg-white hover:text-black transition-all">
@@ -184,8 +205,7 @@ const PublicProfile = () => {
             
             {/* LEFT COLUMN: Skills & Certs */}
             <div className="lg:col-span-1 space-y-10">
-                
-                {/* 1. SKILLS */}
+                {/* SKILLS */}
                 <section>
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                         Technical Arsenal
@@ -201,7 +221,7 @@ const PublicProfile = () => {
                     {profile.skills.technicalSkills.length === 0 && <p className="text-gray-600 text-sm italic">No skills listed.</p>}
                 </section>
 
-                {/* 2. CERTIFICATES (Verified Only) */}
+                {/* CERTIFICATES */}
                 <section>
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                         Verified Credentials
@@ -224,7 +244,7 @@ const PublicProfile = () => {
                     </div>
                 </section>
 
-                {/* 3. SOFT SKILLS */}
+                {/* SOFT SKILLS */}
                 {profile.skills.softSkills.length > 0 && (
                     <section>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Core Competencies</h3>
@@ -241,8 +261,7 @@ const PublicProfile = () => {
 
             {/* RIGHT COLUMN: Projects & Timeline */}
             <div className="lg:col-span-2 space-y-12">
-                
-                {/* 1. FEATURED PROJECTS */}
+                {/* FEATURED PROJECTS */}
                 <section>
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                         Featured Projects
@@ -258,7 +277,6 @@ const PublicProfile = () => {
                                 key={project._id} 
                                 className="group bg-card border border-white/5 rounded-2xl overflow-hidden hover:border-primary/30 transition-all shadow-lg hover:shadow-primary/5 flex flex-col md:flex-row"
                             >
-                                {/* Project Thumbnail */}
                                 <div className="md:w-48 h-48 md:h-auto bg-gray-800 overflow-hidden relative shrink-0">
                                     {project.images && project.images[0] ? (
                                         <img src={project.images[0]} alt={project.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -268,8 +286,6 @@ const PublicProfile = () => {
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Content */}
                                 <div className="p-6 flex-1 flex flex-col">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -281,9 +297,7 @@ const PublicProfile = () => {
                                             {project.links.liveDemo && <a href={project.links.liveDemo} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white"><ExternalLink size={18}/></a>}
                                         </div>
                                     </div>
-
                                     <p className="text-gray-400 text-sm leading-relaxed mb-4 line-clamp-2">{project.description}</p>
-
                                     <div className="mt-auto flex flex-wrap gap-2">
                                         {project.techStack.map((tech, i) => (
                                             <span key={i} className="text-[10px] font-mono bg-white/5 text-gray-300 px-2 py-1 rounded border border-white/5">
@@ -302,7 +316,7 @@ const PublicProfile = () => {
                     </div>
                 </section>
 
-                {/* 2. ACADEMIC JOURNEY (If Public) */}
+                {/* ACADEMIC JOURNEY */}
                 {profile.academic && (
                     <section>
                          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -341,10 +355,10 @@ const PublicProfile = () => {
             </p>
         </footer>
 
-        {/* --- PHASE-20: REPORT MODAL --- */}
+        {/* --- REPORT MODAL --- */}
         {showReportModal && (
             <ReportModal 
-                targetUserId={profile.user._id} // Passing ID for the report
+                targetUserId={profile.user._id} 
                 onClose={() => setShowReportModal(false)} 
             />
         )}

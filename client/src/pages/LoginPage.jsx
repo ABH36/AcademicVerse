@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Link import kiya
+import { useNavigate, Link } from 'react-router-dom'; 
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
@@ -92,16 +92,30 @@ const LoginPage = () => {
           </motion.button>
         </form>
 
-        {/* --- YAHAN CHANGE KIYA HAI --- */}
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-4">
+            {/* Registration Link */}
             <p className="text-xs text-gray-500">
                 Don't have an identity?{' '}
                 <Link to="/register" className="text-primary cursor-pointer hover:underline font-bold">
                     Create Account
                 </Link>
             </p>
+
+            {/* --- LEGAL DISCLAIMER ADDED HERE --- */}
+            <div className="pt-4 border-t border-white/5">
+                <p className="text-[10px] text-gray-500 leading-tight">
+                    By accessing the platform, you agree to our 
+                    <br />
+                    <Link to="/legal" className="text-gray-400 hover:text-primary underline transition-colors mx-1">
+                        Terms of Service
+                    </Link> 
+                    & 
+                    <Link to="/legal" className="text-gray-400 hover:text-primary underline transition-colors mx-1">
+                        Privacy Policy
+                    </Link>.
+                </p>
+            </div>
         </div>
-        {/* ----------------------------- */}
 
       </motion.div>
     </div>

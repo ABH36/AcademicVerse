@@ -13,6 +13,7 @@ import PublicProfile from './pages/PublicProfile';
 
 // --- PHASE-20: NEW IMPORT ---
 import TrustRegistry from './pages/public/TrustRegistry';
+import LegalDocs from './pages/LegalDocs';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
 
           {/* PHASE-20: Public Trust Registry Route */}
           <Route path="/verify" element={<TrustRegistry />} />
+          <Route path="/legal" element={<LegalDocs />} />
 
           {/* PROTECTED DASHBOARD ROUTE
             Note: The Admin Panel is now nested inside Dashboard as /dashboard/admin

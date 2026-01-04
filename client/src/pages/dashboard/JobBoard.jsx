@@ -9,6 +9,9 @@ const JobBoard = () => {
   const [myApps, setMyApps] = useState([]); // Store applications
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // --- FIX: Search State ---
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,6 +39,17 @@ const JobBoard = () => {
       return app ? app.status : null;
   };
 
+  // --- FIX: Filtering Logic ---
+  const filteredJobs = jobs.filter(job => {
+      if (!searchTerm) return true; // Show all if search is empty
+      const term = searchTerm.toLowerCase();
+      // Search by Job Title OR Company Name
+      return (
+          job.title?.toLowerCase().includes(term) || 
+          job.company?.name?.toLowerCase().includes(term)
+      );
+  });
+
   if (loading) return <div className="p-10 flex justify-center"><Loader className="animate-spin text-primary"/></div>;
 
   return (
@@ -45,15 +59,24 @@ const JobBoard = () => {
             <h1 className="text-2xl font-bold text-white">Opportunity Deck</h1>
             <p className="text-gray-400 text-sm">Verified jobs for verified talent.</p>
           </div>
-          <div className="hidden md:flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+          
+          {/* --- FIX: Search Input Connected --- */}
+          <div className="hidden md:flex items-center bg-gray-800 rounded-lg px-3 py-2 border border-gray-700 focus-within:border-primary transition-colors">
               <Search size={16} className="text-gray-500 mr-2"/>
-              <input type="text" placeholder="Search roles..." className="bg-transparent border-none focus:outline-none text-sm text-white w-48"/>
+              <input 
+                type="text" 
+                placeholder="Search roles or companies..." 
+                className="bg-transparent border-none focus:outline-none text-sm text-white w-48"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
           </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobs.length > 0 ? (
-            jobs.map(job => (
+        {/* --- FIX: Mapping over filteredJobs instead of jobs --- */}
+        {filteredJobs.length > 0 ? (
+            filteredJobs.map(job => (
                 <JobCard 
                     key={job._id} 
                     job={job} 
@@ -63,7 +86,9 @@ const JobBoard = () => {
             ))
         ) : (
             <div className="col-span-full text-center py-20 bg-card border border-white/5 rounded-xl">
-                <p className="text-gray-500">No active jobs found. Check back later.</p>
+                <p className="text-gray-500">
+                    {searchTerm ? `No jobs found matching "${searchTerm}"` : "No active jobs found. Check back later."}
+                </p>
             </div>
         )}
       </div>

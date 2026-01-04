@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Link, Routes, Route, useLocation } from 'react-router-dom';
 import { 
   LogOut, User, LayoutDashboard, Briefcase, Award, Settings, 
-  Menu, X, Clock, Zap, FileText, Printer, Shield, ShieldCheck, Rocket, Activity, CreditCard 
+  Menu, X, Clock, Zap, FileText, Printer, Shield, ShieldCheck, 
+  Rocket, Activity, CreditCard, FileCheck // Added FileCheck for Applications
 } from 'lucide-react'; 
 import { getMyProfile, getMySkills, getAcademicRecord } from '../services/profileService';
 import { getMyProjects } from '../services/projectService';
@@ -84,7 +85,7 @@ const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
 
                     {/* ADD TO HOME SCREEN HINT (Mobile Only) */}
                     <div className="md:hidden mb-4 bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl flex items-center gap-3">
-                         <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">📱</div>
+                         <div className="bg-blue-500/20 p-2.5 rounded-lg text-blue-400">📱</div>
                          <div>
                              <p className="text-sm text-blue-200 font-bold">Install App</p>
                              <p className="text-xs text-blue-300/70">Add to Home Screen for faster access.</p>
@@ -99,48 +100,70 @@ const DashboardRoutes = ({ user, loading, overviewData, fetchOverview }) => {
                                 projects={overviewData.projects}
                                 certs={[]} 
                             />
-                            <StudentVerification 
-                                profile={overviewData.profile} 
-                                onVerified={() => {
-                                    console.log("Verified! Refreshing data...");
-                                    fetchOverview();
-                                }} 
-                            />
+                            {/* Only show verification for students */}
+                            {user?.role !== 'recruiter' && user?.role !== 'admin' && (
+                                <StudentVerification 
+                                    profile={overviewData.profile} 
+                                    onVerified={() => {
+                                        console.log("Verified! Refreshing data...");
+                                        fetchOverview();
+                                    }} 
+                                />
+                            )}
                         </div>
                         <div className="lg:col-span-2 h-full">
                             <AnalyticsWidget totalViews={overviewData.profile?.analytics?.profileViews || 0} />
                         </div>
                     </div>
 
+                    {/* Quick Actions (Role Based Visibility) */}
                     <h3 className="text-lg font-bold text-white mt-8 mb-4 border-l-4 border-primary pl-3">Quick Actions</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Link to="/dashboard/resume" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
-                            <div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors"><Printer size={20}/></div>
-                            <div>
-                                <p className="font-bold text-sm text-white">Resume Builder</p>
-                                <p className="text-xs text-gray-500">Download PDF</p>
-                            </div>
-                            </Link>
-                            <Link to="/dashboard/projects" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
-                            <div className="bg-blue-500/20 p-2.5 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors"><Rocket size={20}/></div>
-                            <div>
-                                <p className="font-bold text-sm text-white">Add Project</p>
-                                <p className="text-xs text-gray-500">Showcase Work</p>
-                            </div>
-                            </Link>
-                            <Link to="/dashboard/skills" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
-                            <div className="bg-yellow-500/20 p-2.5 rounded-lg text-yellow-400 group-hover:bg-yellow-500 group-hover:text-white transition-colors"><Zap size={20}/></div>
-                            <div>
-                                <p className="font-bold text-sm text-white">Update Skills</p>
-                                <p className="text-xs text-gray-500">Level Up</p>
-                            </div>
-                            </Link>
+                            {/* Student Specific Actions */}
+                            {user?.role !== 'recruiter' && user?.role !== 'admin' && (
+                                <>
+                                    <Link to="/dashboard/resume" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
+                                        <div className="bg-purple-500/20 p-2.5 rounded-lg text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors"><Printer size={20}/></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-white">Resume Builder</p>
+                                            <p className="text-xs text-gray-500">Download PDF</p>
+                                        </div>
+                                    </Link>
+                                    <Link to="/dashboard/projects" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
+                                        <div className="bg-blue-500/20 p-2.5 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors"><Rocket size={20}/></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-white">Add Project</p>
+                                            <p className="text-xs text-gray-500">Showcase Work</p>
+                                        </div>
+                                    </Link>
+                                    <Link to="/dashboard/skills" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
+                                        <div className="bg-yellow-500/20 p-2.5 rounded-lg text-yellow-400 group-hover:bg-yellow-500 group-hover:text-white transition-colors"><Zap size={20}/></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-white">Update Skills</p>
+                                            <p className="text-xs text-gray-500">Level Up</p>
+                                        </div>
+                                    </Link>
+                                </>
+                            )}
+                            
+                            {/* Recruiter Specific Actions */}
+                            {user?.role === 'recruiter' && (
+                                <Link to="/dashboard/recruiter" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
+                                    <div className="bg-indigo-500/20 p-2.5 rounded-lg text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors"><Shield size={20}/></div>
+                                    <div>
+                                        <p className="font-bold text-sm text-white">Manage Jobs</p>
+                                        <p className="text-xs text-gray-500">Recruiter Hub</p>
+                                    </div>
+                                </Link>
+                            )}
+
+                            {/* Common Action */}
                             <Link to="/dashboard/profile" className="bg-card hover:bg-gray-800 border border-white/5 p-4 rounded-xl flex items-center gap-3 transition-colors group">
-                            <div className="bg-green-500/20 p-2.5 rounded-lg text-green-400 group-hover:bg-green-500 group-hover:text-white transition-colors"><User size={20}/></div>
-                            <div>
-                                <p className="font-bold text-sm text-white">Edit Bio</p>
-                                <p className="text-xs text-gray-500">Identity</p>
-                            </div>
+                                <div className="bg-green-500/20 p-2.5 rounded-lg text-green-400 group-hover:bg-green-500 group-hover:text-white transition-colors"><User size={20}/></div>
+                                <div>
+                                    <p className="font-bold text-sm text-white">Edit Profile</p>
+                                    <p className="text-xs text-gray-500">Identity</p>
+                                </div>
                             </Link>
                     </div>
                 </div>
@@ -230,10 +253,8 @@ const Dashboard = () => {
   }
 
   // ---------------------------------------------------------
-  // RENDER: DESKTOP LAYOUT (SCROLL FIX APPLIED)
+  // RENDER: DESKTOP LAYOUT
   // ---------------------------------------------------------
-  // FIXED: Changed 'min-h-screen' to 'h-screen' & added 'overflow-hidden' on parent
-  // Added 'h-full overflow-y-auto' on main content to enable internal scrolling
   return (
     <div className="h-screen flex bg-gray-900 text-white font-sans selection:bg-primary/30 overflow-hidden">
       
@@ -263,15 +284,12 @@ const Dashboard = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {/* 1. OVERVIEW (COMMON) */}
           <SidebarItem icon={LayoutDashboard} label="Overview" path="/dashboard" active={location.pathname === '/dashboard'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={Briefcase} label="Job Board" path="/dashboard/jobs" active={location.pathname === '/dashboard/jobs'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={Clock} label="My Applications" path="/dashboard/applications" active={location.pathname === '/dashboard/applications'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={User} label="Edit Profile" path="/dashboard/profile" active={location.pathname === '/dashboard/profile'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={Clock} label="Timeline & History" path="/dashboard/timeline" active={location.pathname === '/dashboard/timeline'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={Zap} label="Skills & Badges" path="/dashboard/skills" active={location.pathname === '/dashboard/skills'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={Rocket} label="Project Universe" path="/dashboard/projects" active={location.pathname === '/dashboard/projects'} onClick={() => setSidebarOpen(false)} />
-          <SidebarItem icon={FileText} label="Resume Builder" path="/dashboard/resume" active={location.pathname === '/dashboard/resume'} onClick={() => setSidebarOpen(false)} />
+
+          {/* 2. ROLE BASED PRIORITY ITEMS */}
           
+          {/* RECRUITER SECTION */}
           {user?.role === 'recruiter' && (
              <>
                  <SidebarItem icon={Shield} label="Recruiter Hub" path="/dashboard/recruiter" active={location.pathname === '/dashboard/recruiter'} onClick={() => setSidebarOpen(false)} />
@@ -280,10 +298,34 @@ const Dashboard = () => {
              </>
           )}
 
+          {/* ADMIN SECTION */}
           {user?.role === 'admin' && (
              <SidebarItem icon={ShieldCheck} label="Admin Authority" path="/dashboard/admin" active={location.pathname === '/dashboard/admin'} onClick={() => setSidebarOpen(false)} />
           )}
 
+          {/* 3. JOB BOARD (COMMON) */}
+          <SidebarItem icon={Briefcase} label="Job Board" path="/dashboard/jobs" active={location.pathname === '/dashboard/jobs'} onClick={() => setSidebarOpen(false)} />
+
+          {/* 4. STUDENT ITEMS (Hidden for Recruiter/Admin to keep clean) */}
+          {user?.role !== 'recruiter' && user?.role !== 'admin' && (
+             <>
+                {/* Fixed Icon: Using FileCheck for Applications */}
+                <SidebarItem icon={FileCheck} label="My Applications" path="/dashboard/applications" active={location.pathname === '/dashboard/applications'} onClick={() => setSidebarOpen(false)} />
+                <SidebarItem icon={User} label="Edit Profile" path="/dashboard/profile" active={location.pathname === '/dashboard/profile'} onClick={() => setSidebarOpen(false)} />
+                {/* Fixed Icon: Clock is now unique to Timeline */}
+                <SidebarItem icon={Clock} label="Timeline & History" path="/dashboard/timeline" active={location.pathname === '/dashboard/timeline'} onClick={() => setSidebarOpen(false)} />
+                <SidebarItem icon={Zap} label="Skills & Badges" path="/dashboard/skills" active={location.pathname === '/dashboard/skills'} onClick={() => setSidebarOpen(false)} />
+                <SidebarItem icon={Rocket} label="Project Universe" path="/dashboard/projects" active={location.pathname === '/dashboard/projects'} onClick={() => setSidebarOpen(false)} />
+                <SidebarItem icon={FileText} label="Resume Builder" path="/dashboard/resume" active={location.pathname === '/dashboard/resume'} onClick={() => setSidebarOpen(false)} />
+             </>
+          )}
+
+          {/* Recruiter/Admin need profile access too, but simpler */}
+          {(user?.role === 'recruiter' || user?.role === 'admin') && (
+              <SidebarItem icon={User} label="Edit Profile" path="/dashboard/profile" active={location.pathname === '/dashboard/profile'} onClick={() => setSidebarOpen(false)} />
+          )}
+
+          {/* 5. FUTURE MODULES (At Bottom) */}
           <SidebarItem icon={Award} label="Certificates (Beta)" path="/dashboard/certificates" active={location.pathname === '/dashboard/certificates'} onClick={() => setSidebarOpen(false)} />
           <SidebarItem icon={Settings} label="Settings" path="/dashboard/settings" active={location.pathname === '/dashboard/settings'} onClick={() => setSidebarOpen(false)} />
         </nav>
@@ -305,9 +347,9 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      {/* Main Content Area - FIXED SCROLLING */}
+      {/* Main Content Area */}
       <main className="flex-1 h-full overflow-y-auto overflow-x-hidden">
-        {/* Mobile Header (Hidden in Desktop) */}
+        {/* Mobile Header */}
         <header className="bg-gray-900 border-b border-gray-800 md:hidden p-4 flex justify-between items-center sticky top-0 z-20">
              <div className="flex items-center gap-3">
                  <button onClick={toggleSidebar} className="text-gray-400 hover:text-white">

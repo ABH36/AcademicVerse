@@ -1,3 +1,11 @@
+const sgMail = require('@sendgrid/mail');
+const EmailOTP = require('../models/EmailOTP');
+
+// Configure SendGrid
+if (process.env.SENDGRID_API_KEY) {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
 const crypto = require('crypto'); 
 const jwt = require('jsonwebtoken');
 const argon2 = require('argon2');
@@ -290,4 +298,82 @@ exports.getLoginHistory = async (req, res) => {
         logger.error(`History Error: ${error.message}`);
         res.status(500).json({ message: 'Server Error' });
     }
+};
+
+// @desc    Send Email Verification OTP
+// @route   POST /api/auth/send-email-otp
+exports.sendEmailOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    // 1. Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 2. Clear old OTPs for this email
+    await EmailOTP.deleteMany({ email });
+
+    // 3. Save new OTP (Valid for 10 mins)
+    await EmailOTP.create({
+      email,
+      otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    });
+
+    // 4. Send Email via SendGrid
+    const msg = {
+      to: email,
+      // FIX: Use EMAIL_FROM which matches your .env file
+      from: process.env.EMAIL_FROM || 'jainabhi6001@gmail.com', 
+      subject: "AcademicVerse: Verify your Email",
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+          <h2 style="color: #3B82F6;">Email Verification</h2>
+          <p>Use the code below to verify your email address. It is valid for 10 minutes.</p>
+          <h1 style="background: #f4f4f4; padding: 15px; display: inline-block; letter-spacing: 5px; border-radius: 8px;">${otp}</h1>
+          <p style="font-size: 12px; color: #666;">If you didn't request this, ignore this email.</p>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({ message: "OTP sent successfully to " + email });
+
+  } catch (error) {
+    console.error("Send OTP Error:", error);
+    // SendGrid specific error details log karein
+    if (error.response) {
+      console.error(error.response.body);
+    }
+    res.status(500).json({ message: "Failed to send OTP", error: error.message });
+  }
+};
+
+// @desc    Verify Email OTP
+// @route   POST /api/auth/verify-email-otp
+exports.verifyEmailOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const record = await EmailOTP.findOne({ email, otp });
+
+    if (!record) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Security check: ensure strictly within time (though Mongo TTL handles cleanup)
+    if (record.expiresAt < new Date()) {
+        return res.status(400).json({ message: "OTP has expired" });
+    }
+
+    // Success - Clear OTP to prevent reuse
+    await EmailOTP.deleteMany({ email });
+
+    res.json({ success: true, message: "Email verified successfully" });
+
+  } catch (error) {
+    console.error("Verify OTP Error:", error);
+    res.status(500).json({ message: "Verification failed" });
+  }
 };

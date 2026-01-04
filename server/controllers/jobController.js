@@ -1,7 +1,7 @@
 const Job = require('../models/Job');
 const Application = require('../models/Application');
 const Profile = require('../models/Profile');
-const User = require('../models/User'); // <--- ADDED FOR PHASE-16
+const User = require('../models/User'); 
 const calculateTrustScore = require('../utils/trustEngine');
 const sendEmail = require('../utils/sendEmail');
 const { generateEmailHtml } = require('../utils/emailTemplates');
@@ -9,8 +9,8 @@ const { analyzeApplicationRisk } = require('../utils/fraudGuard');
 const Report = require('../models/Report');
 const { analyzeJobRisk } = require('../utils/recruiterGuard');
 
-// --- HELPER: PRODUCTION EMAIL ENGINE (FINAL CRASH-PROOF) ---
-exports.sendStatusEmail = async (user, job, status, interviewDetails = null) => {
+// --- HELPER: PRODUCTION EMAIL ENGINE (UPDATED FOR FULL OFFER DETAILS) ---
+exports.sendStatusEmail = async (user, job, status, details = null) => {
     // 1. SAFETY CHECK
     if (!user || !job || !user.email) {
         console.log("Email skipped: User or Job details missing.");
@@ -28,16 +28,50 @@ exports.sendStatusEmail = async (user, job, status, interviewDetails = null) => 
     switch (status) {
         case 'interview':
             subject = `Action Required: Interview with ${emailData.company}`;
-            // --- CRASH PROOF LOGIC ---
-            emailData.mode = String(interviewDetails?.type || 'Online').toUpperCase();
-            emailData.date = interviewDetails?.datetime ? new Date(interviewDetails.datetime).toLocaleDateString() : 'Date TBD';
-            emailData.time = interviewDetails?.datetime ? new Date(interviewDetails.datetime).toLocaleTimeString() : 'Time TBD';
-            emailData.link = interviewDetails?.link || interviewDetails?.venue || 'Check Dashboard for details';
-            emailData.message = interviewDetails?.message || 'Please arrive 5 mins early.';
+            
+            const type = details?.type || 'Online';
+            emailData.mode = String(type).toUpperCase();
+            
+            // Logic: Try to extract Date/Time from 'datetime' ISO string first.
+            let dateStr = 'Date TBD';
+            let timeStr = 'Time TBD';
+
+            if (details?.datetime) {
+                const dt = new Date(details.datetime);
+                if (!isNaN(dt)) {
+                    dateStr = dt.toLocaleDateString();
+                    timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+            } else {
+                if (details?.date) dateStr = details.date;
+                if (details?.time) timeStr = details.time;
+            }
+
+            emailData.date = dateStr;
+            emailData.time = timeStr;
+            emailData.link = details?.link || details?.venue || 'Check Dashboard for details';
+            emailData.message = details?.message || 'Please arrive 5 mins early.';
             break;
+
         case 'offered':
             subject = `🎉 OFFER LETTER: ${emailData.company}`;
+            
+            // --- NEW: Map Complete Offer Details ---
+            emailData.salary = details?.salary || 'As Discussed';
+            emailData.role = details?.role || job.title;
+            
+            // Format Joining Date
+            emailData.joiningDate = details?.joiningDate 
+                ? new Date(details.joiningDate).toLocaleDateString() 
+                : 'Immediate';
+            
+            // New Fields for Professional Offer
+            emailData.location = details?.location || 'Main Office / Remote';
+            emailData.manager = details?.manager || 'Hiring Manager';
+            
+            emailData.message = details?.message || 'We are excited to have you on board!';
             break;
+
         case 'rejected':
             subject = `Application Status Update: ${job.title}`;
             break;
@@ -64,23 +98,16 @@ exports.sendStatusEmail = async (user, job, status, interviewDetails = null) => 
     });
 };
 
-// @desc    Post a Job (Recruiter) - WITH FRAUD GUARD & USAGE TRACKING
-// @route   POST /api/jobs
+// @desc    Post a Job (Recruiter)
 exports.createJob = async (req, res) => {
   try {
     const { company, title, description, type, location, salary, requirements, minTrustScore, verifiedOnly } = req.body;
 
-    // PHASE-15C: RUN FRAUD GUARD
-    const riskAnalysis = analyzeJobRisk(
-        { title, description, salary }, 
-        req.user.email
-    );
+    const riskAnalysis = analyzeJobRisk({ title, description, salary }, req.user.email);
 
     const job = await Job.create({
       recruiter: req.user.id,
       company, title, description, type, location, salary, requirements, minTrustScore, verifiedOnly,
-      
-      // Inject Risk Profile
       trustProfile: {
           riskScore: riskAnalysis.riskScore,
           flags: riskAnalysis.flags,
@@ -89,7 +116,6 @@ exports.createJob = async (req, res) => {
       status: riskAnalysis.isFlagged ? 'flagged' : 'active'
     });
 
-    // PHASE-16: INCREMENT JOB POSTING USAGE
     await User.findByIdAndUpdate(req.user.id, { 
         $inc: { 'subscription.usage.jobsPosted': 1 } 
     });
@@ -106,7 +132,6 @@ exports.createJob = async (req, res) => {
 };
 
 // @desc    Get All Active Jobs
-// @route   GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
     const jobs = await Job.find({ status: 'active' })
@@ -118,8 +143,7 @@ exports.getJobs = async (req, res) => {
   }
 };
 
-// @desc    Apply for a Job (With Fraud Detection)
-// @route   POST /api/jobs/:id/apply
+// @desc    Apply for a Job
 exports.applyForJob = async (req, res) => {
   try {
     const jobId = req.params.id;
@@ -128,25 +152,20 @@ exports.applyForJob = async (req, res) => {
     if (!job) return res.status(404).json({ message: 'Job not found' });
     if (job.status !== 'active') return res.status(400).json({ message: 'Job is closed' });
 
-    // 1. Fetch Profile
     const profile = await Profile.findOne({ user: req.user.id });
     if (!profile) return res.status(404).json({ message: 'Profile not found' });
 
-    // 2. Calculate Trust
     const trustData = calculateTrustScore({ ...profile.toObject(), skills: { technical: [] }, academicDetails: {} });
 
-    // 3. Eligibility Gate (Hard Block)
     if (job.verifiedOnly && !profile.verification.isVerified) return res.status(403).json({ message: 'Verified Badge Required' });
     if (trustData.score < job.minTrustScore) return res.status(403).json({ message: 'Trust Score too low' });
 
-    // 4. PHASE-15B: RUN FRAUD GUARD
     const riskAnalysis = await analyzeApplicationRisk(req.user.id, trustData.score, profile.verification.isVerified);
     
-    // 5. Create Application with Risk Profile
     const application = await Application.create({
       job: jobId,
       applicant: req.user.id,
-      status: riskAnalysis.isSuspicious ? 'flagged' : 'applied', // Auto-flag if suspicious
+      status: riskAnalysis.isSuspicious ? 'flagged' : 'applied',
       trustSnapshot: { 
           score: trustData.score, 
           tier: trustData.tier, 
@@ -176,7 +195,6 @@ exports.applyForJob = async (req, res) => {
 };
 
 // @desc    Get Applications for a Job (Recruiter)
-// @route   GET /api/jobs/:id/applications
 exports.getJobApplications = async (req, res) => {
     try {
         const job = await Job.findById(req.params.id);
@@ -195,7 +213,6 @@ exports.getJobApplications = async (req, res) => {
 };
 
 // @desc    Get Jobs Posted by Recruiter
-// @route   GET /api/jobs/my-jobs
 exports.getMyPostedJobs = async (req, res) => {
     try {
         const jobs = await Job.find({ recruiter: req.user.id }).sort({ createdAt: -1 });
@@ -207,7 +224,6 @@ exports.getMyPostedJobs = async (req, res) => {
 };
 
 // @desc    Get Student History
-// @route   GET /api/jobs/applications/my
 exports.getMyApplications = async (req, res) => {
     try {
         const applications = await Application.find({ applicant: req.user.id })
@@ -221,12 +237,15 @@ exports.getMyApplications = async (req, res) => {
 };
 
 // @desc    Recruiter Updates Status (Interview, Offer, Reject)
-// @route   PATCH /api/jobs/application/:id/status
 exports.updateApplicationStatus = async (req, res) => {
     try {
         const { status, interview } = req.body; 
         const applicationId = req.params.id;
-        const application = await Application.findById(applicationId).populate('job').populate('applicant');
+        
+        // Note: For offers, 'interview' var contains offer details (frontend sends generic payload)
+        const payload = interview || {};
+
+        let application = await Application.findById(applicationId).populate('job').populate('applicant');
         
         if (!application) return res.status(404).json({ message: 'Application not found' });
         if (application.job.recruiter.toString() !== req.user.id) return res.status(403).json({ message: 'Access Denied: Not your job' });
@@ -234,29 +253,44 @@ exports.updateApplicationStatus = async (req, res) => {
         // Update Status
         application.status = status;
 
-        // If Interview, save details safely
-        if (status === 'interview' && interview) {
+        // If Interview, save details safely to DB
+        if (status === 'interview') {
             application.interview = {
-                type: interview.type || 'online',
-                link: interview.link || '',
-                venue: interview.venue || '',
-                datetime: interview.datetime || Date.now(),
-                message: interview.message || '',
+                type: payload.type || 'online',
+                link: payload.link || '',
+                venue: payload.venue || '',
+                datetime: payload.datetime || new Date().toISOString(), 
+                message: payload.message || '',
                 scheduledAt: Date.now()
             };
             
-            // PHASE-16: INCREMENT INTERVIEW USAGE
             await User.findByIdAndUpdate(req.user.id, { 
                 $inc: { 'subscription.usage.interviewsScheduled': 1 } 
             });
         }
 
+        // For Offer: We don't save offer details to DB yet, 
+        // but we pass them to the Email Engine directly.
+
         await application.save();
 
-        // Trigger Email Notification
-        await exports.sendStatusEmail(application.applicant, application.job, status, application.interview);
+        // RELOAD APPLICATION
+        const updatedApp = await Application.findById(applicationId).populate('job').populate('applicant');
 
-        res.json({ message: `Candidate moved to ${status}`, status, interview: application.interview });
+        // Trigger Email Notification
+        // Logic: If status is 'interview', use DB data. If 'offered', use payload from request.
+        if (updatedApp.applicant && updatedApp.job) {
+             const emailDetails = status === 'interview' ? updatedApp.interview : payload;
+             
+             await exports.sendStatusEmail(
+                updatedApp.applicant, 
+                updatedApp.job, 
+                status, 
+                emailDetails
+            );
+        }
+
+        res.json({ message: `Candidate moved to ${status}`, status, interview: updatedApp.interview });
 
     } catch (error) {
         console.error("Update Status Error:", error);
@@ -265,10 +299,9 @@ exports.updateApplicationStatus = async (req, res) => {
 };
 
 // @desc    Student Responds to Offer (Accept/Reject)
-// @route   PATCH /api/jobs/application/:id/respond
 exports.respondToOffer = async (req, res) => {
     try {
-        const { response } = req.body; // 'accepted' or 'declined'
+        const { response } = req.body; 
         const applicationId = req.params.id;
         
         const application = await Application.findById(applicationId).populate('job');
@@ -281,18 +314,15 @@ exports.respondToOffer = async (req, res) => {
             application.status = 'hired';
             await application.save();
 
-            // Close Job
             const job = await Job.findById(application.job._id);
             job.status = 'closed';
             await job.save();
 
-            // Reject others
             await Application.updateMany(
                 { job: job._id, _id: { $ne: applicationId } },
                 { status: 'rejected' }
             );
 
-            // Send Hired Email
             await exports.sendStatusEmail(req.user, job, 'hired');
 
             res.json({ message: 'Offer Accepted! Job Closed.', status: 'hired' });
@@ -312,7 +342,6 @@ exports.respondToOffer = async (req, res) => {
 };
 
 // @desc    Report a Job (Student)
-// @route   POST /api/jobs/:id/report
 exports.reportJob = async (req, res) => {
     try {
         const { reason, description } = req.body;
@@ -321,13 +350,11 @@ exports.reportJob = async (req, res) => {
         const job = await Job.findById(jobId);
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
-        // Check if already reported
         const existingReport = await Report.findOne({ job: jobId, reporter: req.user.id });
         if (existingReport) {
             return res.status(400).json({ message: 'You have already reported this job.' });
         }
 
-        // Create Report
         await Report.create({
             job: jobId,
             reporter: req.user.id,
@@ -336,10 +363,8 @@ exports.reportJob = async (req, res) => {
             description
         });
 
-        // Increment Report Count
         job.reports += 1;
         
-        // Auto-Flag if too many reports
         if (job.reports >= 5) {
             job.status = 'flagged';
         }
