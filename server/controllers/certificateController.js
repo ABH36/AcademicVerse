@@ -1,9 +1,14 @@
 const Certificate = require('../models/Certificate');
+const Profile = require('../models/Profile'); // Need Profile to update score
 const cloudinary = require('../config/cloudinary');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 
-// @desc    Add a Certificate (Hardened)
+// --- SYNC FIX: Import Trust Engine ---
+const calculateTrustScore = require('../utils/trustEngine'); 
+// -------------------------------------
+
+// @desc    Add a Certificate (Hardened + Synced)
 exports.addCertificate = async (req, res) => {
   try {
     if (req.user.isFrozen) {
@@ -33,6 +38,14 @@ exports.addCertificate = async (req, res) => {
       imageUrl: req.file.path,
       verificationId
     });
+
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Certificate add hua -> Score badhna chahiye
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
 
     logger.info(`Certificate Added: ${title} by ${req.user.id}`);
     res.status(201).json(certificate);
@@ -82,7 +95,7 @@ exports.verifyCertificatePublic = async (req, res) => {
   }
 };
 
-// @desc    Delete Certificate (Hardened)
+// @desc    Delete Certificate (Hardened + Synced)
 exports.deleteCertificate = async (req, res) => {
   try {
     const cert = await Certificate.findById(req.params.id);
@@ -104,6 +117,15 @@ exports.deleteCertificate = async (req, res) => {
     }
 
     await cert.deleteOne();
+
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Certificate delete hua -> Score kam hona chahiye
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
+
     res.json({ message: 'Certificate removed' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });

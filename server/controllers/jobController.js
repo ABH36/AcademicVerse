@@ -143,6 +143,10 @@ exports.getJobs = async (req, res) => {
   }
 };
 
+// ============================================
+// 🔒 APPLY JOB: THE SYNC FIX IS HERE
+// ============================================
+
 // @desc    Apply for a Job
 exports.applyForJob = async (req, res) => {
   try {
@@ -155,20 +159,37 @@ exports.applyForJob = async (req, res) => {
     const profile = await Profile.findOne({ user: req.user.id });
     if (!profile) return res.status(404).json({ message: 'Profile not found' });
 
-    const trustData = calculateTrustScore({ ...profile.toObject(), skills: { technical: [] }, academicDetails: {} });
+    // --- SYNC FIX: Calculate Real-Time Score ---
+    // Previously passed object, now calculating fresh from DB
+    const currentScore = await calculateTrustScore(req.user.id);
+    // -------------------------------------------
 
-    if (job.verifiedOnly && !profile.verification.isVerified) return res.status(403).json({ message: 'Verified Badge Required' });
-    if (trustData.score < job.minTrustScore) return res.status(403).json({ message: 'Trust Score too low' });
+    // 1. Check Verified Lock
+    if (job.verifiedOnly && !profile.verification.isVerified) {
+        return res.status(403).json({ message: 'Verified Badge Required for this job.' });
+    }
 
-    const riskAnalysis = await analyzeApplicationRisk(req.user.id, trustData.score, profile.verification.isVerified);
+    // 2. Check Trust Score Lock
+    if (currentScore < job.minTrustScore) {
+        return res.status(403).json({ 
+            message: `Trust Score too low. Required: ${job.minTrustScore}, Yours: ${currentScore}` 
+        });
+    }
+
+    const riskAnalysis = await analyzeApplicationRisk(req.user.id, currentScore, profile.verification.isVerified);
     
+    // Determine Tier based on Score
+    let tier = 'Bronze';
+    if (currentScore >= 700) tier = 'Gold';
+    else if (currentScore >= 400) tier = 'Silver';
+
     const application = await Application.create({
       job: jobId,
       applicant: req.user.id,
       status: riskAnalysis.isSuspicious ? 'flagged' : 'applied',
       trustSnapshot: { 
-          score: trustData.score, 
-          tier: trustData.tier, 
+          score: currentScore, 
+          tier: tier, 
           isVerified: profile.verification.isVerified 
       },
       riskProfile: {
@@ -204,7 +225,7 @@ exports.getJobApplications = async (req, res) => {
 
         const applications = await Application.find({ job: req.params.id })
             .populate('applicant', 'name email avatar username') 
-            .sort({ 'trustSnapshot.score': -1 }); 
+            .sort({ 'trustSnapshot.score': -1 }); // Sort by Trust Score (High to Low)
         res.json(applications);
     } catch (error) {
         console.error(error);

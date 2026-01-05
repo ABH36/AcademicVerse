@@ -1,29 +1,34 @@
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const Certificate = require('../models/Certificate');
-const Job = require('../models/Job');       // Phase-17
-const Report = require('../models/Report'); // Phase-17
-const Invoice = require('../models/Invoice'); // Phase-17
+const Job = require('../models/Job');       
+const Report = require('../models/Report'); 
+const Invoice = require('../models/Invoice');
+// FIX 1: Import KYC Model
+const KYCRequest = require('../models/KYCRequest'); 
 const logger = require('../utils/logger');
 
-// @desc    Get Admin Dashboard Stats (Combined Phase-1 & Phase-17)
+// @desc    Get Admin Dashboard Stats
 // @route   GET /api/admin/stats
 exports.getAdminStats = async (req, res) => {
   try {
     // 1. User Stats
     const totalUsers = await User.countDocuments();
     const students = await User.countDocuments({ role: 'student' });
-    const recruiters = await User.countDocuments({ role: 'recruiter' }); // Phase-17
+    const recruiters = await User.countDocuments({ role: 'recruiter' });
 
     // 2. Pending Work Items
     const pendingCertificates = await Certificate.countDocuments({ isVerified: false });
     const pendingProfiles = await Profile.countDocuments({ verificationStatus: 'pending' });
-    const pendingReports = await Report.countDocuments({ status: 'pending' }); // Phase-17
+    const pendingReports = await Report.countDocuments({ status: 'pending' });
+    
+    // FIX 2: Add Pending KYC Count
+    const pendingKYC = await KYCRequest.countDocuments({ status: 'pending' });
 
     // 3. Platform Stats
-    const totalJobs = await Job.countDocuments(); // Phase-17
+    const totalJobs = await Job.countDocuments(); 
     
-    // 4. Financial Stats (Revenue Calculation)
+    // 4. Financial Stats
     const revenueAgg = await Invoice.aggregate([
         { $match: { status: 'paid' } },
         { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -32,9 +37,9 @@ exports.getAdminStats = async (req, res) => {
 
     res.json({
       users: { total: totalUsers, students, recruiters },
-      workItems: { pendingCertificates, pendingProfiles, pendingReports },
+      workItems: { pendingCertificates, pendingProfiles, pendingReports, pendingKYC }, // Added pendingKYC
       platform: { totalJobs, totalRevenue },
-      // Flattened for backward compatibility if needed
+      // Flattened for backward compatibility
       totalUsers, students, pendingCertificates, pendingProfiles 
     });
 
@@ -44,7 +49,7 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
-// @desc    Get All Users (Paginated & Filtered)
+// @desc    Get All Users
 // @route   GET /api/admin/users
 exports.getAllUsers = async (req, res) => {
   try {
@@ -53,7 +58,7 @@ exports.getAllUsers = async (req, res) => {
 
     const count = await User.countDocuments({});
     const users = await User.find({})
-      .select('-password') // Security: Never send passwords
+      .select('-password') 
       .limit(pageSize)
       .skip(pageSize * (page - 1))
       .sort({ createdAt: -1 });
@@ -64,16 +69,15 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// @desc    Advanced User Management (Ban, Verify Identity, Verify Company)
+// @desc    Advanced User Management
 // @route   PATCH /api/admin/users/:id/action
 exports.manageUser = async (req, res) => {
     try {
-        const { action } = req.body; // 'ban', 'unban', 'verify_identity', 'verify_company'
+        const { action } = req.body; 
         const user = await User.findById(req.params.id);
 
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        // SAFETY LOCK: Prevent modifying other Admins
         if (user.role === 'admin') {
             return res.status(403).json({ message: 'Cannot modify Super Admin accounts.' });
         }
@@ -81,28 +85,26 @@ exports.manageUser = async (req, res) => {
         switch (action) {
             case 'ban':
             case 'freeze':
-                user.isFrozen = true; // Maps to your existing schema
+                user.isFrozen = true; 
                 break;
             case 'unban':
             case 'unfreeze':
                 user.isFrozen = false;
                 break;
             case 'verify_identity':
-                // Update User model (assuming you store it there) or fetch Profile
-                // Here we update a flag on User for simplicity, or find Profile
                 const profile = await Profile.findOne({ user: user._id });
                 if (profile) {
                     profile.verificationStatus = 'verified';
                     profile.verification.isVerified = true;
                     await profile.save();
                 }
+                user.isVerified = true; // Also update User model
                 break;
             case 'verify_company':
-                // Special perk for recruiters
+                // Manual override for VIP recruiters
                 if (user.role === 'recruiter') {
-                    // Update subscription or specific flag
-                    // Assuming we give them PRO plan perks manually
-                    user.subscription = { ...user.subscription, plan: 'PRO', status: 'active' };
+                    user.isVerified = true;
+                    // user.subscription logic if needed
                 }
                 break;
             default:
@@ -120,7 +122,7 @@ exports.manageUser = async (req, res) => {
     }
 };
 
-// @desc    Legacy Toggle Freeze (Kept for backward compatibility)
+// @desc    Legacy Toggle Freeze
 // @route   PUT /api/admin/user/:id/freeze
 exports.toggleUserFreeze = async (req, res) => {
   try {
@@ -144,7 +146,7 @@ exports.getPendingCertificates = async (req, res) => {
   try {
     const certs = await Certificate.find({ isVerified: false })
       .populate('user', 'name email')
-      .sort({ createdAt: 1 }); // Oldest first
+      .sort({ createdAt: 1 }); 
     res.json(certs);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
@@ -155,7 +157,7 @@ exports.getPendingCertificates = async (req, res) => {
 // @route   PUT /api/admin/certificate/:id/verify
 exports.verifyCertificate = async (req, res) => {
   try {
-    const { status } = req.body; // 'approved' or 'rejected'
+    const { status } = req.body; 
     const cert = await Certificate.findById(req.params.id);
 
     if (!cert) return res.status(404).json({ message: 'Certificate not found' });
@@ -175,7 +177,73 @@ exports.verifyCertificate = async (req, res) => {
   }
 };
 
-// @desc    Get Trust Center Reports (Phase-17)
+// ============================================
+// 🏢 NEW: KYC MANAGEMENT (RECRUITER APPROVAL)
+// ============================================
+
+// @desc    Get Pending KYC Requests
+exports.getPendingKYC = async (req, res) => {
+    try {
+        console.log("Admin checking for pending KYCs..."); // Debug Log
+        
+        // FIX: Query for lowercase 'pending'
+        const kycs = await KYCRequest.find({ status: 'pending' })
+            .populate('user', 'name email role')
+            .sort({ createdAt: 1 });
+            
+        console.log(`Found ${kycs.length} pending requests.`); // Debug Log
+        res.json(kycs);
+    } catch (error) {
+        console.error("KYC Fetch Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Evaluate KYC (Approve/Reject)
+exports.evaluateKYC = async (req, res) => {
+    try {
+        const { status, adminComments } = req.body; 
+        const kyc = await KYCRequest.findById(req.params.id);
+
+        if (!kyc) return res.status(404).json({ message: 'KYC Request not found' });
+
+        // FIX: Status update bhi lowercase mein
+        if (status === 'approved') {
+            kyc.status = 'approved';
+            kyc.reviewedBy = req.user._id;
+            kyc.reviewedAt = Date.now();
+            await kyc.save();
+
+            // User ko Blue Tick do
+            await User.findByIdAndUpdate(kyc.user, { isVerified: true });
+
+            // Profile update (Optional safety)
+            const Profile = require('../models/Profile');
+            await Profile.findOneAndUpdate({ user: kyc.user }, { 
+                'verification.isVerified': true,
+                'verification.status': 'verified'
+            });
+
+            res.json({ message: 'KYC Approved.', kyc });
+
+        } else if (status === 'rejected') {
+            kyc.status = 'rejected';
+            kyc.adminComments = adminComments || 'Documents invalid';
+            kyc.reviewedBy = req.user._id;
+            kyc.reviewedAt = Date.now();
+            await kyc.save();
+
+            res.json({ message: 'KYC Rejected.' });
+        } else {
+            res.status(400).json({ message: 'Invalid status' });
+        }
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+// @desc    Get Reports
 // @route   GET /api/admin/reports
 exports.getReports = async (req, res) => {
     try {
@@ -189,16 +257,15 @@ exports.getReports = async (req, res) => {
     }
 };
 
-// @desc    Resolve a Report (Phase-17)
+// @desc    Resolve Report
 // @route   PATCH /api/admin/reports/:id/resolve
 exports.resolveReport = async (req, res) => {
     try {
-        const { action } = req.body; // 'dismiss', 'ban_recruiter', 'remove_job'
+        const { action } = req.body; 
         const report = await Report.findById(req.params.id);
         
         if (!report) return res.status(404).json({ message: 'Report not found' });
 
-        // Perform Action
         if (action === 'remove_job') {
             await Job.findByIdAndUpdate(report.job, { status: 'closed' });
         } else if (action === 'ban_recruiter') {

@@ -109,7 +109,7 @@ const RecruiterHub = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in-up">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in-up pb-20">
         
         {/* HEADER & TABS SWITCHER */}
         <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 p-6 rounded-xl border border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -190,7 +190,7 @@ const RecruiterHub = () => {
                     <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Describe the role..." rows="5" className="w-full bg-gray-800 border-gray-700 rounded p-3 text-white focus:border-primary outline-none" />
                 </div>
                 
-                {/* TRUST FILTER SECTION */}
+                {/* TRUST FILTER SECTION (UPDATED SCALE) */}
                 <div className="bg-blue-900/10 p-5 rounded-xl border border-blue-500/20 space-y-3">
                     <h3 className="text-sm font-bold text-blue-400 flex items-center gap-2"><ShieldCheck size={18}/> Quality Filters (Trust Layer)</h3>
                     <div className="flex flex-col md:flex-row md:items-center gap-6">
@@ -198,10 +198,16 @@ const RecruiterHub = () => {
                             <input type="checkbox" name="verifiedOnly" checked={formData.verifiedOnly} onChange={handleChange} className="w-5 h-5 rounded bg-gray-800 border-gray-600 text-primary focus:ring-primary" />
                             Only Verified Students (Blue Tick)
                         </label>
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm text-gray-300">Minimum Trust Score:</span>
-                            <input type="number" name="minTrustScore" value={formData.minTrustScore} onChange={handleChange} className="w-20 bg-gray-800 border-gray-600 rounded p-2 text-white text-sm text-center focus:border-blue-500 outline-none" />
-                            <span className="text-xs text-gray-500">(0-100)</span>
+                        
+                        <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-300">Minimum Trust Score:</span>
+                                <input type="number" name="minTrustScore" value={formData.minTrustScore} onChange={handleChange} className="w-24 bg-gray-800 border-gray-600 rounded p-2 text-white text-sm text-center focus:border-blue-500 outline-none" />
+                                <span className="text-xs text-gray-500 font-mono">(0-1000)</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 pl-1">
+                                Avg: 300 | Silver: 400 | Gold: 700+
+                            </p>
                         </div>
                     </div>
                 </div>

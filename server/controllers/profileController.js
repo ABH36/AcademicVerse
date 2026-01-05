@@ -3,6 +3,10 @@ const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const logger = require('../utils/logger');
 
+// --- SYNC FIX: Import Trust Engine ---
+const calculateTrustScore = require('../utils/trustEngine'); 
+// -------------------------------------
+
 // @desc    Get current user's profile
 // @route   GET /api/profile/me
 // @access  Private
@@ -128,14 +132,22 @@ exports.createOrUpdateProfile = async (req, res) => {
         { $set: profileFields },
         { new: true }
       );
-      logger.info(`Profile Updated: ${req.user.id}`);
-      return res.json(profile);
+    } else {
+      // Create
+      profile = new Profile(profileFields);
+      await profile.save();
     }
 
-    // Create
-    profile = new Profile(profileFields);
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Kyunki Bio, LinkedIn, College add karne se score badhta hai
+    const newScore = await calculateTrustScore(req.user.id);
+    profile.trustScore = newScore;
     await profile.save();
-    logger.info(`Profile Created: ${req.user.id}`);
+    // ==================================================
+
+    logger.info(`Profile Updated & Synced: ${req.user.id}`);
     res.json(profile);
 
   } catch (error) {

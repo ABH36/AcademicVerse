@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { getAcademicRecord, addTimelineEvent, addSemester } from '../../services/profileService';
 import { toast } from 'react-toastify';
-import { Plus, BookOpen, Calendar, Award, Upload } from 'lucide-react';
+import { Plus, BookOpen, Calendar, Award, Upload, X } from 'lucide-react'; // Added X for close icon
 import { motion } from 'framer-motion';
 
 const AcademicTimeline = () => {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Modals State
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showSemesterModal, setShowSemesterModal] = useState(false); // NEW: Semester Modal State
   
   // Event Form State
   const [eventData, setEventData] = useState({ title: '', description: '', category: 'achievement', date: '' });
   const [proofFile, setProofFile] = useState(null);
+
+  // Semester Form State (NEW)
+  const [semData, setSemData] = useState({ semesterNumber: '', sgpa: '', status: 'completed' });
 
   useEffect(() => {
     loadData();
@@ -28,6 +34,7 @@ const AcademicTimeline = () => {
     }
   };
 
+  // --- HANDLE TIMELINE EVENT ---
   const handleEventSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -47,6 +54,35 @@ const AcademicTimeline = () => {
     }
   };
 
+  // --- HANDLE SEMESTER SUBMIT (NEW FIX) ---
+  const handleSemesterSubmit = async (e) => {
+    e.preventDefault();
+    try {
+        // Basic validation
+        if(!semData.semesterNumber || !semData.sgpa) {
+            return toast.warning("Semester No. and SGPA are required");
+        }
+
+        const payload = {
+            semesterNumber: semData.semesterNumber,
+            sgpa: semData.sgpa,
+            status: semData.status,
+            subjects: [] // Sending empty subjects array for now as per minimal requirement
+        };
+
+        await addSemester(payload);
+        toast.success(`Semester ${semData.semesterNumber} Result Added!`);
+        setShowSemesterModal(false);
+        
+        // Reset Form
+        setSemData({ semesterNumber: '', sgpa: '', status: 'completed' });
+        
+        loadData(); // Refresh UI
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to add semester');
+    }
+  };
+
   if (loading) return <div className="p-10 text-white">Loading Academic History...</div>;
 
   return (
@@ -58,7 +94,7 @@ const AcademicTimeline = () => {
         </div>
         <button 
            onClick={() => setShowEventModal(true)}
-           className="bg-primary hover:bg-blue-600 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold"
+           className="bg-primary hover:bg-blue-600 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-colors"
         >
            <Plus size={16} /> Add Milestone
         </button>
@@ -138,39 +174,44 @@ const AcademicTimeline = () => {
                     </div>
                     <div className="text-right">
                         <p className="font-bold text-primary">SGPA: {sem.sgpa}</p>
-                        <span className={`text-[10px] px-2 py-0.5 rounded ${sem.status === 'Pass' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded ${sem.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                             {sem.status}
                         </span>
                     </div>
                 </div>
             ))}
-            <button className="w-full py-2 border border-dashed border-gray-600 rounded-lg text-gray-400 text-sm hover:text-white hover:border-white transition-colors">
+            
+            {/* FIXED: CLICKABLE BUTTON */}
+            <button 
+                onClick={() => setShowSemesterModal(true)}
+                className="w-full py-2 border border-dashed border-gray-600 rounded-lg text-gray-400 text-sm hover:text-white hover:border-white transition-colors"
+            >
                 + Add Semester Results
             </button>
          </div>
       </div>
 
-      {/* MODAL: Add Event */}
+      {/* MODAL 1: Add Event */}
       {showEventModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-gray-900 border border-gray-700 w-full max-w-md p-6 rounded-xl relative">
-                <button onClick={() => setShowEventModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
+                <button onClick={() => setShowEventModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={20}/></button>
                 <h2 className="text-xl font-bold mb-4">Add Milestone</h2>
                 <form onSubmit={handleEventSubmit} className="space-y-4">
                     <input 
                         type="text" placeholder="Title (e.g. Won Hackathon)" 
-                        className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white"
+                        className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
                         value={eventData.title} onChange={e => setEventData({...eventData, title: e.target.value})}
                         required
                     />
                     <textarea 
                         placeholder="Description" rows={3}
-                        className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white"
+                        className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
                         value={eventData.description} onChange={e => setEventData({...eventData, description: e.target.value})}
                     />
                     <div className="grid grid-cols-2 gap-4">
                         <select 
-                             className="bg-gray-800 border border-gray-700 p-2 rounded text-white"
+                             className="bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
                              value={eventData.category} onChange={e => setEventData({...eventData, category: e.target.value})}
                         >
                             <option value="achievement">Achievement</option>
@@ -180,7 +221,7 @@ const AcademicTimeline = () => {
                         </select>
                         <input 
                             type="date" 
-                            className="bg-gray-800 border border-gray-700 p-2 rounded text-white"
+                            className="bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
                             value={eventData.date} onChange={e => setEventData({...eventData, date: e.target.value})}
                             required
                         />
@@ -189,11 +230,55 @@ const AcademicTimeline = () => {
                         <label className="block text-xs text-gray-400 mb-1">Upload Proof (Image/PDF)</label>
                         <input type="file" onChange={e => setProofFile(e.target.files[0])} className="text-sm text-gray-400" />
                     </div>
-                    <button type="submit" className="w-full bg-primary py-2 rounded font-bold hover:bg-blue-600">Save Event</button>
+                    <button type="submit" className="w-full bg-primary py-2 rounded font-bold hover:bg-blue-600 transition-colors">Save Event</button>
                 </form>
             </div>
         </div>
       )}
+
+      {/* MODAL 2: Add Semester (NEW) */}
+      {showSemesterModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-gray-900 border border-gray-700 w-full max-w-sm p-6 rounded-xl relative">
+                <button onClick={() => setShowSemesterModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={20}/></button>
+                <h2 className="text-xl font-bold mb-4">Add Semester Result</h2>
+                <form onSubmit={handleSemesterSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">Semester Number</label>
+                        <input 
+                            type="number" placeholder="e.g. 1" min="1" max="10"
+                            className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
+                            value={semData.semesterNumber} onChange={e => setSemData({...semData, semesterNumber: e.target.value})}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">SGPA / Grade</label>
+                        <input 
+                            type="number" placeholder="e.g. 8.5" step="0.01" min="0" max="10"
+                            className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
+                            value={semData.sgpa} onChange={e => setSemData({...semData, sgpa: e.target.value})}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">Status</label>
+                        <select 
+                             className="w-full bg-gray-800 border border-gray-700 p-2 rounded text-white focus:border-primary outline-none"
+                             value={semData.status} onChange={e => setSemData({...semData, status: e.target.value})}
+                        >
+                            <option value="completed">Completed (Pass)</option>
+                            <option value="ongoing">Ongoing</option>
+                            <option value="declared">Result Declared</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" className="w-full bg-green-600 py-2 rounded font-bold hover:bg-green-700 transition-colors">Update Result</button>
+                </form>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };

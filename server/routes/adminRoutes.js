@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+
 const { 
   getAdminStats, 
   getAllUsers, 
@@ -8,8 +9,11 @@ const {
   verifyCertificate,
   manageUser, 
   getReports, 
-  resolveReport 
+  resolveReport,
+  getPendingKYC,
+  evaluateKYC
 } = require('../controllers/adminController');
+
 const { protect } = require('../middleware/authMiddleware');
 const { adminOnly } = require('../middleware/adminMiddleware');
 
@@ -29,13 +33,9 @@ router.use(adminOnly);
  *   get:
  *     summary: Platform Analytics Dashboard
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Platform statistics
- *       403:
- *         description: Access denied
  */
 router.get('/stats', getAdminStats);
 
@@ -45,8 +45,6 @@ router.get('/stats', getAdminStats);
  *   get:
  *     summary: List all users
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: User list
@@ -59,15 +57,12 @@ router.get('/users', getAllUsers);
  *   put:
  *     summary: Freeze or unfreeze user
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     responses:
  *       200:
  *         description: Freeze toggled
@@ -80,14 +75,6 @@ router.put('/user/:id/freeze', toggleUserFreeze);
  *   patch:
  *     summary: Perform admin action
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -106,14 +93,14 @@ router.put('/user/:id/freeze', toggleUserFreeze);
  */
 router.patch('/users/:id/action', manageUser);
 
+/* ---------------- CERTIFICATES ---------------- */
+
 /**
  * @swagger
  * /admin/certificates/pending:
  *   get:
  *     summary: Pending certificate approvals
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Pending certificates
@@ -126,8 +113,6 @@ router.get('/certificates/pending', getPendingCertificates);
  *   put:
  *     summary: Verify certificate
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -152,14 +137,60 @@ router.get('/certificates/pending', getPendingCertificates);
  */
 router.put('/certificate/:id/verify', verifyCertificate);
 
+/* ---------------- KYC ---------------- */
+
+/**
+ * @swagger
+ * /admin/kyc/pending:
+ *   get:
+ *     summary: Get all pending Recruiter KYC requests
+ *     tags: [Admin Authority]
+ *     responses:
+ *       200:
+ *         description: List of pending KYCs
+ */
+router.get('/kyc/pending', getPendingKYC);
+
+/**
+ * @swagger
+ * /admin/kyc/{id}/evaluate:
+ *   put:
+ *     summary: Approve or Reject Recruiter KYC
+ *     tags: [Admin Authority]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, rejected]
+ *               adminComments:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: KYC evaluated and recruiter verified
+ */
+router.put('/kyc/:id/evaluate', evaluateKYC);
+
+/* ---------------- REPORTS ---------------- */
+
 /**
  * @swagger
  * /admin/reports:
  *   get:
  *     summary: Trust & safety reports
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Reports list
@@ -170,10 +201,8 @@ router.get('/reports', getReports);
  * @swagger
  * /admin/reports/{id}/resolve:
  *   patch:
- *     summary: Resolve report
+ *     summary: Resolve trust report
  *     tags: [Admin Authority]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -190,8 +219,6 @@ router.get('/reports', getReports);
  *               status:
  *                 type: string
  *                 enum: [resolved, dismissed]
- *               notes:
- *                 type: string
  *     responses:
  *       200:
  *         description: Report resolved

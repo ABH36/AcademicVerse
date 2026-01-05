@@ -1,5 +1,10 @@
 const Skill = require('../models/Skill');
+const Profile = require('../models/Profile'); // Need Profile to update score
 const logger = require('../utils/logger');
+
+// --- SYNC FIX: Import Trust Engine ---
+const calculateTrustScore = require('../utils/trustEngine'); 
+// -------------------------------------
 
 // @desc    Get My Skills
 exports.getMySkills = async (req, res) => {
@@ -15,7 +20,7 @@ exports.getMySkills = async (req, res) => {
   }
 };
 
-// @desc    Add/Update Skills (Hardened)
+// @desc    Add/Update Skills (Hardened + Synced)
 // @route   POST /api/skills/update
 exports.updateSkills = async (req, res) => {
   try {
@@ -40,8 +45,6 @@ exports.updateSkills = async (req, res) => {
 
     // LOCK-IN 3: Global Limit Check (Max 30 Skills Total)
     const totalSkills = skillProfile.technicalSkills.length + skillProfile.softSkills.length;
-    // We only block if it's a NEW skill (adding), not if updating existing
-    // We check this logic inside the loop below, but for safety:
     
     const targetArray = type === 'technical' ? skillProfile.technicalSkills : skillProfile.softSkills;
 
@@ -66,6 +69,15 @@ exports.updateSkills = async (req, res) => {
     }
 
     await skillProfile.save();
+
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Skill Count affects Profile Completeness Score
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
+
     logger.info(`Skill Updated: ${cleanName} (${level}) for User ${req.user.id}`);
     res.json(skillProfile);
 
@@ -75,7 +87,7 @@ exports.updateSkills = async (req, res) => {
   }
 };
 
-// @desc    Remove a Skill
+// @desc    Remove a Skill (Synced)
 exports.deleteSkill = async (req, res) => {
   try {
     const { type, name } = req.params;
@@ -99,6 +111,15 @@ exports.deleteSkill = async (req, res) => {
     }
 
     await skillProfile.save();
+
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Skill removed -> Score adjust
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
+
     res.json(skillProfile);
 
   } catch (error) {

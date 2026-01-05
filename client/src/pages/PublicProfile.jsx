@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom'; // Added useLocation
+import { useParams, useNavigate, useLocation } from 'react-router-dom'; 
 import { Helmet } from 'react-helmet-async';
 import api from '../services/api'; 
 import { motion } from 'framer-motion';
@@ -9,13 +9,13 @@ import {
   ExternalLink, Award, BookOpen, CheckCircle, Shield, Flag, ArrowLeft 
 } from 'lucide-react';
 import ShareProfile from '../components/ShareProfile';
-import TrustBadge from '../components/TrustBadge'; 
+import TrustBadge from '../components/TrustBadge'; // Ensure correct path
 import ReportModal from '../components/profile/ReportModal'; 
 
 const PublicProfile = () => {
   const { username } = useParams();
   const navigate = useNavigate(); 
-  const location = useLocation(); // Hook to check history state
+  const location = useLocation(); 
   const { user: currentUser } = useAuth(); 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,9 +40,6 @@ const PublicProfile = () => {
 
   // --- SMART BACK HANDLER ---
   const handleBack = () => {
-    // React Router assigns a 'default' key to the initial entry in the stack.
-    // If key is 'default', it means user opened link directly (No History) -> Go Dashboard.
-    // If key is NOT 'default', user navigated here -> Go Back (-1).
     if (location.key !== 'default') {
         navigate(-1);
     } else {
@@ -68,7 +65,7 @@ const PublicProfile = () => {
     </div>
   );
 
-  // Theme Handling (Safe Fallback)
+  // Theme Handling
   const themeColor = profile.theme?.accentColor || '#3B82F6';
 
   return (
@@ -76,20 +73,17 @@ const PublicProfile = () => {
         {/* SEO Injection */}
         <Helmet>
             <title>{profile.identity.name} - AcademicVerse</title>
-            <meta name="description" content={profile.identity.bio || `View ${profile.identity.name}'s verified academic portfolio and projects.`} />
+            <meta name="description" content={profile.identity.bio || `View ${profile.identity.name}'s verified academic portfolio.`} />
             <meta property="og:type" content="profile" />
-            <meta property="og:title" content={`${profile.identity.name} | Verified Student Portfolio`} />
-            <meta property="og:description" content={profile.identity.bio || "View my academic credentials and projects."} />
+            <meta property="og:title" content={`${profile.identity.name} | Verified Student`} />
+            <meta property="og:description" content={profile.identity.bio || "AcademicVerse Portfolio"} />
             <meta property="og:image" content={profile.identity.avatar || "https://academicverse.com/social-cover.png"} />
             <meta property="og:url" content={window.location.href} />
         </Helmet>
 
-        {/* Floating Share Button */}
         <ShareProfile username={username} name={profile.identity.name} />
 
         {/* --- NAVIGATION CONTROLS --- */}
-        
-        {/* 1. SMART BACK BUTTON (High Z-Index & Clickable) */}
         {currentUser && (
             <button 
                 onClick={handleBack} 
@@ -100,7 +94,6 @@ const PublicProfile = () => {
             </button>
         )}
 
-        {/* 2. Report Button (Top Right) */}
         <div className="absolute top-6 right-6 z-20">
             <button 
                 onClick={() => setShowReportModal(true)}
@@ -154,18 +147,21 @@ const PublicProfile = () => {
                             {profile.identity.bio || "No bio added yet."}
                         </p>
 
+                        {/* --- SYNCED TRUST BADGE --- */}
+                        {/* Passing verification status AND backend trustScore (located at root of profile object) */}
                         <div className="mb-6 max-w-md mx-auto md:mx-0">
                             <TrustBadge 
                                 verification={profile.identity.verification} 
                                 scoreOverride={profile.trustScore} 
                             />
                         </div>
+                        {/* --------------------------- */}
 
                         <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-500 mb-6">
-                            {profile.academic?.semesters && (
+                            {profile.academic?.collegeName && (
                                 <span className="flex items-center gap-1.5 bg-gray-800/50 px-3 py-1.5 rounded-lg border border-white/5">
                                     <BookOpen size={14} className="text-gray-400"/> 
-                                    {profile.academic.collegeName || "College Student"}
+                                    {profile.academic.collegeName}
                                 </span>
                             )}
                             <span className="flex items-center gap-1.5 bg-gray-800/50 px-3 py-1.5 rounded-lg border border-white/5">

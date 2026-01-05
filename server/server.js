@@ -28,6 +28,7 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 // --- PHASE-21: SWAGGER IMPORTS ---
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
+const path = require('path');
 
 // Load env vars
 dotenv.config();
@@ -108,7 +109,8 @@ app.use('/api/admin', adminRoutes);       // Phase-9
 app.use('/api/verify', require('./routes/verificationRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/subscription', subscriptionRoutes); // Phase-16: Monetization Layer
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Phase-16: Monetization Layer
 
 // Base Route (Health Check)
 app.get('/', (req, res) => {

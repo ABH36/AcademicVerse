@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, Shield, ExternalLink, Clock, Calendar, Trophy, Send, Briefcase, MapPin, UserCheck } from 'lucide-react';
+import { CheckCircle, XCircle, Shield, ExternalLink, Calendar, Trophy, Send, AlertTriangle, Lock } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const ApplicantCard = ({ application, onUpdateStatus }) => {
   const { applicant, trustSnapshot, status } = application;
   
-  // --- STATE 1: Interview Scheduling (Purana Logic) ---
+  // --- SYNC FIX: TRUST & VERIFICATION DATA ---
+  const score = trustSnapshot?.score || 0;
+  const isVerified = trustSnapshot?.isVerified || false; // Backend se aayi value
+  
+  // Color Logic for Trust Score (0-1000 Scale)
+  // Matching ProfileStrength.js Tiers
+  let scoreColor = 'text-orange-400'; // Bronze (<400)
+  let scoreBg = 'bg-orange-500/10 border-orange-500/20';
+
+  if (score >= 700) {
+      scoreColor = 'text-yellow-400'; // Gold
+      scoreBg = 'bg-yellow-500/10 border-yellow-500/20';
+  } else if (score >= 400) {
+      scoreColor = 'text-gray-300';   // Silver
+      scoreBg = 'bg-gray-500/10 border-gray-500/20';
+  }
+  // -------------------------------------------
+
+  // --- STATE 1: Interview Scheduling ---
   const [showSchedule, setShowSchedule] = useState(false);
   const [interview, setInterview] = useState({
       type: 'online', 
@@ -14,36 +32,28 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
       message: ''
   });
 
-  // --- STATE 2: Offer Letter Details (NEW UPDATED) ---
+  // --- STATE 2: Offer Letter Details ---
   const [showOfferForm, setShowOfferForm] = useState(false);
   const [offer, setOffer] = useState({ 
       role: '', 
       salary: '', 
       joiningDate: '', 
-      location: '', // New: Reporting Address
-      manager: '',  // New: Reporting Manager
+      location: '', // Reporting Address
+      manager: '',  // Reporting Manager
       message: '' 
   });
 
   // Handle Interview Submit
   const handleScheduleSubmit = () => {
-      // Validation
-      if (!interview.datetime) {
-          toast.warning("Please select a Date & Time for the interview.");
-          return;
-      }
-      if (!interview.link) {
-          toast.warning("Please provide a Meeting Link or Venue address.");
-          return;
-      }
-      // Send Data
+      if (!interview.datetime) return toast.warning("Please select a Date & Time.");
+      if (!interview.link) return toast.warning("Please provide a Meeting Link or Venue address.");
+      
       onUpdateStatus(application._id, 'interview', interview);
       setShowSchedule(false);
   };
 
-  // --- Handle Offer Submit (NEW) ---
+  // Handle Offer Submit
   const handleOfferSubmit = () => {
-      // Validation including new Location field
       if (!offer.salary || !offer.joiningDate || !offer.location) {
           toast.warning("Salary, Joining Date & Location are required!");
           return;
@@ -53,17 +63,14 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
       setShowOfferForm(false);
   };
 
-  // Color Logic for Trust Score
-  const score = trustSnapshot?.score || 0;
-  const scoreColor = score >= 90 ? 'text-yellow-400' : score >= 70 ? 'text-blue-400' : 'text-gray-500';
-
   return (
-    <div className="bg-gray-900 border border-white/10 p-4 rounded-xl flex flex-col gap-4 shadow-lg transition-all hover:border-primary/30">
+    <div className={`bg-gray-900 border p-4 rounded-xl flex flex-col gap-4 shadow-lg transition-all hover:border-primary/30 ${status === 'flagged' ? 'border-red-500/30' : 'border-white/10'}`}>
       
       {/* HEADER SECTION */}
       <div className="flex justify-between items-start">
         <div className="flex gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden border border-gray-700">
+          {/* AVATAR */}
+          <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden border border-gray-700 relative">
               {applicant?.avatar ? (
                   <img src={applicant.avatar} className="w-full h-full object-cover" alt="avatar"/>
               ) : (
@@ -72,26 +79,36 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
                   </div>
               )}
           </div>
+          
+          {/* NAME & VERIFICATION */}
           <div>
-            <h4 className="font-bold text-white text-sm">{applicant?.name}</h4>
+            <h4 className="font-bold text-white text-sm flex items-center gap-1">
+                {applicant?.name}
+                {isVerified && (
+                    <CheckCircle size={12} className="text-blue-500" fill="currentColor" />
+                )}
+            </h4>
             <a href={`/u/${applicant?.username}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
                 View Profile <ExternalLink size={10}/>
             </a>
           </div>
         </div>
-        <div className={`text-xl font-black ${scoreColor} flex items-center gap-1 bg-gray-800/50 px-2 py-1 rounded`}>
-            {score} <Shield size={14}/>
+
+        {/* TRUST SCORE BADGE (UPDATED UI) */}
+        <div className={`text-sm font-black ${scoreColor} ${scoreBg} border px-2 py-1 rounded flex items-center gap-1.5`}>
+            <Shield size={14}/> {score}
         </div>
       </div>
 
       {/* STATUS BADGE */}
-      <div className={`text-xs text-center border p-1 rounded uppercase font-bold tracking-wider
+      <div className={`text-xs text-center border p-1 rounded uppercase font-bold tracking-wider flex justify-center items-center gap-2
           ${status === 'flagged' ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-gray-800 border-gray-700 text-gray-400'}
       `}>
+          {status === 'flagged' && <AlertTriangle size={12}/>}
           {status}
       </div>
 
-      {/* --- FORM 1: INTERVIEW SCHEDULING (SAME AS BEFORE) --- */}
+      {/* --- FORM 1: INTERVIEW SCHEDULING --- */}
       {showSchedule && (
           <div className="bg-gray-800 p-4 rounded-lg space-y-3 text-xs border border-blue-500/30 shadow-2xl relative animate-in fade-in slide-in-from-top-2">
               <div className="flex justify-between items-center mb-1">
@@ -130,7 +147,7 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
           </div>
       )}
 
-      {/* --- FORM 2: OFFER LETTER (UPDATED WITH ADDRESS & MANAGER) --- */}
+      {/* --- FORM 2: OFFER LETTER (PRESERVED) --- */}
       {showOfferForm && (
           <div className="bg-green-900/20 p-4 rounded-lg space-y-3 text-xs border border-green-500/30 shadow-2xl relative animate-in fade-in slide-in-from-top-2">
               <div className="flex justify-between items-center mb-1">
@@ -160,7 +177,6 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
                   </div>
               </div>
 
-              {/* NEW FIELD: ADDRESS */}
               <div>
                   <label className="text-gray-400 block mb-1">Reporting Address / Location *</label>
                   <input type="text" placeholder="e.g. 4th Floor, Tech Park, Bangalore OR Remote" className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-green-500 outline-none" onChange={e => setOffer({...offer, location: e.target.value})}/>
@@ -206,8 +222,8 @@ const ApplicantCard = ({ application, onUpdateStatus }) => {
         )}
 
         {status === 'flagged' && (
-             <div className="col-span-2 text-center text-[10px] text-red-400 italic">
-                 Flagged by automated fraud detection.
+             <div className="col-span-2 text-center text-[10px] text-red-400 italic flex items-center justify-center gap-1">
+                 <AlertTriangle size={12}/> Flagged by automated fraud detection.
              </div>
         )}
       </div>

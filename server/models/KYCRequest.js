@@ -8,14 +8,23 @@ const kycSchema = new mongoose.Schema({
   },
   companyName: { type: String, required: true },
   businessRegNumber: { type: String, required: true },
-  documentUrl: { type: String, required: true }, // URL to uploaded file
+  documentUrl: { type: String, required: true }, 
+  
+  // FIX: Sab kuch lowercase kar diya
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
-    default: 'Pending'
+    enum: ['pending', 'approved', 'rejected'], 
+    default: 'pending'
   },
+  
   adminComments: { type: String },
-  submittedAt: { type: Date, default: Date.now }
-});
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  reviewedAt: {
+    type: Date
+  }
+}, { timestamps: true });
 
 module.exports = mongoose.model('KYCRequest', kycSchema);

@@ -33,3 +33,8 @@ export const searchTrustRegistry = async (query) => {
   const response = await api.get(`/verify/registry?q=${query}`);
   return response.data;
 };
+
+export const getKYCStatus = async () => {
+  const response = await api.get('/verify/kyc/status');
+  return response.data;
+};

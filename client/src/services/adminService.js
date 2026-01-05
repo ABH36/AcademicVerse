@@ -57,3 +57,15 @@ export const resolveReport = async (reportId, action) => {
     const { data } = await api.patch(`/admin/reports/${reportId}/resolve`, { action });
     return data;
 };
+export const getPendingKYC = async () => {
+  const response = await api.get('/admin/kyc/pending');
+  return response.data;
+};
+
+export const evaluateKYC = async (id, status, comments) => {
+  const response = await api.put(`/admin/kyc/${id}/evaluate`, { 
+    status, 
+    adminComments: comments 
+  });
+  return response.data;
+};

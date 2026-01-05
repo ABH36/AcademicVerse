@@ -29,13 +29,34 @@ exports.generateEmailHtml = (type, data) => {
   let content = '';
   let color = '#3b82f6'; // Default Blue
 
-  // Ensure Fallbacks to prevent "undefined" in emails
+  // Ensure Fallbacks
   const name = data.name || 'Candidate';
   const company = data.company || 'Our Company';
   const jobTitle = data.jobTitle || 'the position';
 
-  // Match the exact status string from Controller ('interview', 'offered', 'rejected', 'hired')
   switch (type) {
+    // --- NEW: STUDENT VERIFICATION CASE ---
+    case 'verification':
+      color = '#2563eb'; // Strong Blue
+      content = `
+        <h2 style="color: ${color};">Verify Student Identity</h2>
+        <p>Dear User,</p>
+        <p>You initiated a request to verify your academic status on <strong>AcademicVerse</strong>.</p>
+        
+        <p style="font-size: 14px; margin-top: 20px;">Your Verification Code is:</p>
+        <div style="background: #eff6ff; padding: 15px; text-align: center; border-radius: 8px; border: 1px dashed ${color}; margin: 15px 0;">
+            <h1 style="letter-spacing: 8px; color: ${color}; margin: 0; font-size: 32px;">${data.otp}</h1>
+        </div>
+
+        <p style="font-size: 13px; color: #64748b;">This code is valid for <strong>10 minutes</strong>.</p>
+        
+        <div style="background-color: #f8fafc; padding: 10px; border-radius: 6px; margin-top: 20px; font-size: 11px; color: #64748b; text-align: center;">
+          🛡 <strong>Protected by AcademicVerse Identity Shield™</strong><br/>
+          If you didn't request this, simply ignore this email.
+        </div>
+      `;
+      break;
+
     case 'interview':
       color = '#3b82f6';
       content = `
@@ -55,10 +76,9 @@ exports.generateEmailHtml = (type, data) => {
       `;
       break;
 
-    // Updated to match 'offered' status from DB
     case 'offered': 
-    case 'offer': // Fallback just in case
-      color = '#10b981'; // Success Green
+    case 'offer': 
+      color = '#10b981'; // Green
       content = `
         <h2 style="color: ${color};">🎉 Official Job Offer</h2>
         <p>Dear <strong>${name}</strong>,</p>
@@ -68,12 +88,9 @@ exports.generateEmailHtml = (type, data) => {
           <h3 style="margin-top:0; color: ${color};">Offer Details</h3>
           <p style="margin: 8px 0;"><strong>💰 CTC / Salary:</strong> ${data.salary || 'As Discussed'}</p>
           <p style="margin: 8px 0;"><strong>🗓 Joining Date:</strong> ${data.joiningDate || 'Immediate'}</p>
-          
           <p style="margin: 8px 0;"><strong>📍 Reporting Location:</strong> ${data.location || 'Remote / Main Office'}</p>
           <p style="margin: 8px 0;"><strong>👤 Reporting Manager:</strong> ${data.manager || 'Hiring Manager'}</p>
-          
           <hr style="border: 0; border-top: 1px dashed #a7f3d0; margin: 15px 0;"/>
-          
           <p style="font-style: italic; color: #065f46;">"${data.message || 'We look forward to working with you!'}"</p>
         </div>
 

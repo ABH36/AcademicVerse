@@ -3,13 +3,15 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/certificateUploadMiddleware');
 const { verifyLimiter } = require('../middleware/verifyLimiter');
+const kycUpload = require('../middleware/kycCloudinaryMiddleware');
 
 const { 
   initiateVerification, 
   confirmVerification,
   submitKYC, 
   reportUser, 
-  searchRegistry 
+  searchRegistry,
+  getKYCStatus
 } = require('../controllers/verificationController');
 
 /**
@@ -127,8 +129,7 @@ router.post('/confirm', protect, confirmVerification);
  *       201:
  *         description: KYC submitted
  */
-router.post('/kyc', protect, upload.single('document'), submitKYC);
-
+router.post('/kyc', protect, kycUpload.single('document'), submitKYC);
 /**
  * @swagger
  * /verify/report:
@@ -159,5 +160,28 @@ router.post('/kyc', protect, upload.single('document'), submitKYC);
  *         description: Report submitted
  */
 router.post('/report', protect, reportUser);
+
+/**
+ * @swagger
+ * /verify/kyc/status:
+ *   get:
+ *     summary: Get Recruiter KYC Status
+ *     tags: [Trust & Verification]
+ *     description: Returns current KYC verification status of logged-in recruiter
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: KYC status returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [not_submitted, pending, approved, rejected]
+ */
+router.get('/kyc/status', protect, getKYCStatus);
 
 module.exports = router;

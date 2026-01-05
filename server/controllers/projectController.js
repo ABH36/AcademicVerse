@@ -1,8 +1,13 @@
 const Project = require('../models/Project');
+const Profile = require('../models/Profile'); // Need Profile for syncing
 const cloudinary = require('../config/cloudinary'); // Required for cleanup
 const logger = require('../utils/logger');
 
-// @desc    Create a new Project (Hardened)
+// --- SYNC FIX: Import Trust Engine ---
+const calculateTrustScore = require('../utils/trustEngine'); 
+// -------------------------------------
+
+// @desc    Create a new Project (Hardened + Synced)
 // @route   POST /api/projects
 // @access  Private
 exports.createProject = async (req, res) => {
@@ -61,6 +66,14 @@ exports.createProject = async (req, res) => {
       isPublic: finalVisibility
     });
 
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Activity boost: Adding projects shows active participation
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
+
     logger.info(`Project Created: ${title} by ${req.user.id}. Visibility: ${finalVisibility}`);
     res.status(201).json(project);
 
@@ -80,7 +93,7 @@ exports.getMyProjects = async (req, res) => {
   }
 };
 
-// @desc    Delete Project (Hardened)
+// @desc    Delete Project (Hardened + Synced)
 // @route   DELETE /api/projects/:id
 // @access  Private
 exports.deleteProject = async (req, res) => {
@@ -114,6 +127,15 @@ exports.deleteProject = async (req, res) => {
     }
 
     await project.deleteOne();
+
+    // ==================================================
+    // 🔄 TRUST SYNC START: Recalculate Score
+    // ==================================================
+    // Project removed -> Activity points adjust
+    const newScore = await calculateTrustScore(req.user.id);
+    await Profile.findOneAndUpdate({ user: req.user.id }, { trustScore: newScore });
+    // ==================================================
+
     logger.info(`Project Deleted: ${req.params.id}`);
     res.json({ message: 'Project removed' });
 
